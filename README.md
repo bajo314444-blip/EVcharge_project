@@ -17,15 +17,17 @@
 ## 📁 디렉토리 구조 (Directory Structure)
 유지보수 및 확장을 위해 메인 웹 뷰와 데이터/모델 로직을 분리하여 설계되었습니다.
 
-📦 DataAnalysis_3-1
- ┣ 📂 dataset/               # 공공데이터 원본 파일 (충전소 위치, 등록대수, 한전 전력판매량 등)
- ┣ 📂 utils/                 # 핵심 서비스 비즈니스 로직 모듈
- ┃ ┣ 📜 data_processing.py   # 다중 인코딩 지원 데이터 병합 및 전처리 파이프라인
- ┃ ┣ 📜 models.py            # ML/DL 회귀 모델 구축, 특징 행렬 생성 및 훈련 로직
- ┃ ┗ 📜 visualizations.py    # Folium 지도, SHAP, TableOne 등 렌더링 로직
- ┣ 📜 app.py                 # Streamlit 웹 어플리케이션 메인 엔트리 포인트
- ┣ 📜 requirements.txt       # 패키지 의존성 명세서
- ┗ 📜 .gitignore             # 깃허브 제외 파일 목록
+```text
+📦 DataAnalysis_3-1 
+┣ 📂 dataset/ # 공공데이터 원본 파일 (충전소 위치, 등록대수, 한전 전력판매량 등) 
+┣ 📂 utils/ # 핵심 서비스 비즈니스 로직 모듈 
+┃ ┣ 📜 data_processing.py # 다중 인코딩 지원 데이터 병합 및 전처리 파이프라인 
+┃ ┣ 📜 models.py # ML/DL 회귀 모델 구축, 특징 행렬 생성 및 훈련 로직 
+┃ ┗ 📜 visualizations.py # Folium 지도, SHAP, TableOne 등 렌더링 로직 
+┣ 📜 app.py # Streamlit 웹 어플리케이션 메인 엔트리 포인트 
+┣ 📜 requirements.txt # 패키지 의존성 명세서 
+┗ 📜 .gitignore # 깃허브 제외 파일 목록
+```
 
 ## 📊 사용된 데이터셋 (Datasets)
 본 프로젝트는 다음의 최신 공공데이터들을 융합하여 분석했습니다.
