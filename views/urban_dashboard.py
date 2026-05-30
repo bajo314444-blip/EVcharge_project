@@ -348,7 +348,6 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             st.markdown("#### 1. Scatter plot with 95% Confidence Interval")
             try:
                 import seaborn as sns
-                import matplotlib.pyplot as plt
     
                 plt.rc('font', family='Malgun Gothic')
                 plt.rcParams['axes.unicode_minus'] = False
