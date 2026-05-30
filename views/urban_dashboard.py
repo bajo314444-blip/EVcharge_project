@@ -638,13 +638,28 @@ def render_report(filtered, final_data, model_state):
     top_features = model_state["importance"].sort_values("Importance", ascending=False).head(2)["Feature"].tolist()
     import tempfile
     
-    # Feature Importance Plotly Chart
+    # Feature Importance Matplotlib Chart (Headless Server-compatible, No Kaleido)
     imp_df = model_state["importance"].sort_values("Importance", ascending=True).tail(10)
-    fig_imp = px.bar(imp_df, x="Importance", y="Feature", orientation='h', title="상위 10개 핵심 인자 (Feature Importance)", color="Importance", color_continuous_scale="Blues")
-    fig_imp.update_layout(showlegend=False, margin=dict(l=20, r=20, t=40, b=20), height=400)
+    
+    fig_mat, ax = plt.subplots(figsize=(6, 4))
+    colors = plt.cm.Blues(np.linspace(0.4, 0.9, len(imp_df)))
+    
+    # 한글 및 유니코드 예외 방지 설정
+    plt.rc('font', family='Malgun Gothic')
+    plt.rcParams['axes.unicode_minus'] = False
+    
+    ax.barh(imp_df["Feature"], imp_df["Importance"], color=colors)
+    ax.set_title("상위 10개 핵심 인자 (Feature Importance)", fontsize=10, fontweight='bold')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#cccccc')
+    ax.spines['bottom'].set_color('#cccccc')
+    ax.tick_params(labelsize=8)
+    fig_mat.tight_layout()
     
     tmp_imp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-    fig_imp.write_image(tmp_imp.name, engine="kaleido")
+    fig_mat.savefig(tmp_imp.name, dpi=150, bbox_inches='tight')
+    plt.close(fig_mat)
 
     # PDF 다운로드 버튼
     pdf_bytes = bytes(generate_report_pdf(best_name, test_rmse, top3_list, top_features, feature_importance_img=tmp_imp.name))
