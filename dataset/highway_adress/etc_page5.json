@@ -1,0 +1,1000 @@
+{
+    "list": [
+        {
+            "unitName": "북강릉",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "580 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "128.821284",
+            "yValue": "37.835913"
+        },
+        {
+            "unitName": "옥계",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "581 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "129.034537",
+            "yValue": "37.615941"
+        },
+        {
+            "unitName": "망상",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "582 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "129.096203",
+            "yValue": "37.582548"
+        },
+        {
+            "unitName": "동해",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "583 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "129.099461",
+            "yValue": "37.512455"
+        },
+        {
+            "unitName": "남강릉",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "584 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "128.897075",
+            "yValue": "37.696727"
+        },
+        {
+            "unitName": "하조대",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "585 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "128.691981",
+            "yValue": "38.029957"
+        },
+        {
+            "unitName": "북양양",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "701 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "128.580524",
+            "yValue": "38.155223"
+        },
+        {
+            "unitName": "속초",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "702 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "128.520210",
+            "yValue": "38.202889"
+        },
+        {
+            "unitName": "삼척",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "703 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "129.134093",
+            "yValue": "37.445119"
+        },
+        {
+            "unitName": "근덕",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "704 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "129.208051",
+            "yValue": "37.393055"
+        },
+        {
+            "unitName": "남경주",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "706 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "129.314538",
+            "yValue": "35.738968"
+        },
+        {
+            "unitName": "남포항",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "707 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "129.394802",
+            "yValue": "35.924076"
+        },
+        {
+            "unitName": "동경주",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "708 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "129.435213",
+            "yValue": "35.777933"
+        },
+        {
+            "unitName": "척과구룡",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "747 ",
+            "routeNo": "065",
+            "routeName": "동해선",
+            "xValue": "129.275381",
+            "yValue": "35.619533"
+        },
+        {
+            "unitName": "동부산",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "025 ",
+            "routeNo": "066",
+            "routeName": "부산울산선",
+            "xValue": "129.205733",
+            "yValue": "35.199779"
+        },
+        {
+            "unitName": "문수",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "642 ",
+            "routeNo": "066",
+            "routeName": "부산울산선",
+            "xValue": "129.245438",
+            "yValue": "35.516524"
+        },
+        {
+            "unitName": "청량",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "643 ",
+            "routeNo": "066",
+            "routeName": "부산울산선",
+            "xValue": "129.288158",
+            "yValue": "35.479139"
+        },
+        {
+            "unitName": "온양",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "644 ",
+            "routeNo": "066",
+            "routeName": "부산울산선",
+            "xValue": "129.262036",
+            "yValue": "35.418493"
+        },
+        {
+            "unitName": "장안",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "645 ",
+            "routeNo": "066",
+            "routeName": "부산울산선",
+            "xValue": "129.241617",
+            "yValue": "35.328514"
+        },
+        {
+            "unitName": "기장일광",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "646 ",
+            "routeNo": "066",
+            "routeName": "부산울산선",
+            "xValue": "129.227540",
+            "yValue": "35.277860"
+        },
+        {
+            "unitName": "해운대송정",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "647 ",
+            "routeNo": "066",
+            "routeName": "부산울산선",
+            "xValue": "129.205854",
+            "yValue": "35.216776"
+        },
+        {
+            "unitName": "해운대",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "648 ",
+            "routeNo": "066",
+            "routeName": "부산울산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "호원",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "026 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "고양",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "033 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "통일로",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "034 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "양주(개)",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "035 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "송추",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "036 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "별내",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "037 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "불암산",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "038 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "성남",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "061 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": "127.124126",
+            "yValue": "37.435548"
+        },
+        {
+            "unitName": "구리남양주",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "062 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": "127.155842",
+            "yValue": "37.589798"
+        },
+        {
+            "unitName": "토평",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "063 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": "127.158833",
+            "yValue": "37.582252"
+        },
+        {
+            "unitName": "청계",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "064 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": "127.024893",
+            "yValue": "37.393524"
+        },
+        {
+            "unitName": "시흥",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "067 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": "126.804494",
+            "yValue": "37.451516"
+        },
+        {
+            "unitName": "김포",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "068 ",
+            "routeNo": "100",
+            "routeName": "수도권제1순환선",
+            "xValue": "126.768681",
+            "yValue": "37.592366"
+        },
+        {
+            "unitName": "산인",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "145 ",
+            "routeNo": "103",
+            "routeName": "남해제1지선",
+            "xValue": "128.479090",
+            "yValue": "35.270697"
+        },
+        {
+            "unitName": "마산",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "289 ",
+            "routeNo": "103",
+            "routeName": "남해제1지선",
+            "xValue": "128.605965",
+            "yValue": "35.259351"
+        },
+        {
+            "unitName": "가락(개)",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "029 ",
+            "routeNo": "104",
+            "routeName": "남해제2지선",
+            "xValue": "128.894607",
+            "yValue": "35.168301"
+        },
+        {
+            "unitName": "서부산",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "244 ",
+            "routeNo": "104",
+            "routeName": "남해제2지선",
+            "xValue": "128.872197",
+            "yValue": "35.171850"
+        },
+        {
+            "unitName": "장유",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "245 ",
+            "routeNo": "104",
+            "routeName": "남해제2지선",
+            "xValue": "128.808170",
+            "yValue": "35.198558"
+        },
+        {
+            "unitName": "가락",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "246 ",
+            "routeNo": "104",
+            "routeName": "남해제2지선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "가락2",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "596 ",
+            "routeNo": "104",
+            "routeName": "남해제2지선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "남장유",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "791 ",
+            "routeNo": "104",
+            "routeName": "남해제2지선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "남진례",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "696 ",
+            "routeNo": "105",
+            "routeName": "남해제3지선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "대청",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "697 ",
+            "routeNo": "105",
+            "routeName": "남해제3지선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "진해",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "698 ",
+            "routeNo": "105",
+            "routeName": "남해제3지선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "진해본선",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "699 ",
+            "routeNo": "105",
+            "routeName": "남해제3지선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "안양과천",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "040 ",
+            "routeNo": "110",
+            "routeName": "제2경인선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "북판교",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "041 ",
+            "routeNo": "110",
+            "routeName": "제2경인선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "북청계",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "042 ",
+            "routeNo": "110",
+            "routeName": "제2경인선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "북의왕",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "043 ",
+            "routeNo": "110",
+            "routeName": "제2경인선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "남인천",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "053 ",
+            "routeNo": "110",
+            "routeName": "제2경인선",
+            "xValue": "126.764522",
+            "yValue": "37.432844"
+        },
+        {
+            "unitName": "인천",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "011 ",
+            "routeNo": "120",
+            "routeName": "경인선",
+            "xValue": "126.748683",
+            "yValue": "37.525018"
+        },
+        {
+            "unitName": "인천공항",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "097 ",
+            "routeNo": "130",
+            "routeName": "인천국제공항선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "북인천",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "098 ",
+            "routeNo": "130",
+            "routeName": "인천국제공항선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "청라",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "099 ",
+            "routeNo": "130",
+            "routeName": "인천국제공항선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "동서천",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "591 ",
+            "routeNo": "151",
+            "routeName": "서천공주선",
+            "xValue": "126.774899",
+            "yValue": "36.052447"
+        },
+        {
+            "unitName": "서부여",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "592 ",
+            "routeNo": "151",
+            "routeName": "서천공주선",
+            "xValue": "126.795567",
+            "yValue": "36.237728"
+        },
+        {
+            "unitName": "부여",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "593 ",
+            "routeNo": "151",
+            "routeName": "서천공주선",
+            "xValue": "126.854106",
+            "yValue": "36.294428"
+        },
+        {
+            "unitName": "칠갑산",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "594 ",
+            "routeNo": "151",
+            "routeName": "서천공주선",
+            "xValue": "126.942593",
+            "yValue": "36.378519"
+        },
+        {
+            "unitName": "서공주",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "595 ",
+            "routeNo": "151",
+            "routeName": "서천공주선",
+            "xValue": "127.054294",
+            "yValue": "36.458471"
+        },
+        {
+            "unitName": "장안본선",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "681 ",
+            "routeNo": "153",
+            "routeName": "평택시흥선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "조암",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "682 ",
+            "routeNo": "153",
+            "routeName": "평택시흥선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "송산마도",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "683 ",
+            "routeNo": "153",
+            "routeName": "평택시흥선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "남안산",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "684 ",
+            "routeNo": "153",
+            "routeName": "평택시흥선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "서시흥",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "685 ",
+            "routeNo": "153",
+            "routeName": "평택시흥선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "동대구",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "621 ",
+            "routeNo": "160",
+            "routeName": "대구-부산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "대구",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "622 ",
+            "routeNo": "160",
+            "routeName": "대구-부산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "수성",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "623 ",
+            "routeNo": "160",
+            "routeName": "대구-부산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "청도",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "624 ",
+            "routeNo": "160",
+            "routeName": "대구-부산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "밀양",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "625 ",
+            "routeNo": "160",
+            "routeName": "대구-부산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "남밀양",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "626 ",
+            "routeNo": "160",
+            "routeName": "대구-부산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "삼랑진",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "627 ",
+            "routeNo": "160",
+            "routeName": "대구-부산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "상동",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "628 ",
+            "routeNo": "160",
+            "routeName": "대구-부산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "김해부산",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "629 ",
+            "routeNo": "160",
+            "routeName": "대구-부산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "금토분기점",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "082 ",
+            "routeNo": "171",
+            "routeName": "용인서울선",
+            "xValue": "127.080637",
+            "yValue": "37.411174"
+        },
+        {
+            "unitName": "서수지",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "084 ",
+            "routeNo": "171",
+            "routeName": "용인서울선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "금토",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "085 ",
+            "routeNo": "171",
+            "routeName": "용인서울선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "서오산",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "675 ",
+            "routeNo": "171",
+            "routeName": "용인서울선",
+            "xValue": "127.010871",
+            "yValue": "37.188733"
+        },
+        {
+            "unitName": "완주",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "544 ",
+            "routeNo": "204",
+            "routeName": "새만금포항지선",
+            "xValue": "127.152076",
+            "yValue": "35.895096"
+        },
+        {
+            "unitName": "소양",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "545 ",
+            "routeNo": "204",
+            "routeName": "새만금포항지선",
+            "xValue": "127.238707",
+            "yValue": "35.859251"
+        },
+        {
+            "unitName": "계룡",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "109 ",
+            "routeNo": "251",
+            "routeName": "호남선지선",
+            "xValue": "127.276469",
+            "yValue": "36.253320"
+        },
+        {
+            "unitName": "북대전",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "151 ",
+            "routeNo": "251",
+            "routeName": "호남선지선",
+            "xValue": "127.380457",
+            "yValue": "36.415353"
+        },
+        {
+            "unitName": "유성",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "152 ",
+            "routeNo": "251",
+            "routeName": "호남선지선",
+            "xValue": "127.328570",
+            "yValue": "36.364702"
+        },
+        {
+            "unitName": "양촌",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "599 ",
+            "routeNo": "251",
+            "routeName": "호남선지선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "서밀양",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "709 ",
+            "routeNo": "253",
+            "routeName": "함양울산선",
+            "xValue": "128.677200",
+            "yValue": "35.494857"
+        },
+        {
+            "unitName": "밀양출구JC",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "710 ",
+            "routeNo": "253",
+            "routeName": "함양울산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "밀양입구JC",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "720 ",
+            "routeNo": "253",
+            "routeName": "함양울산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "울주동JC",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "770 ",
+            "routeNo": "253",
+            "routeName": "함양울산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "배내골",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "771 ",
+            "routeNo": "253",
+            "routeName": "함양울산선",
+            "xValue": "129.006920",
+            "yValue": "35.523742"
+        },
+        {
+            "unitName": "울주서JC",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "780 ",
+            "routeNo": "253",
+            "routeName": "함양울산선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "서대전",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "153 ",
+            "routeNo": "300",
+            "routeName": "대전남부순환선",
+            "xValue": "127.324027",
+            "yValue": "36.289603"
+        },
+        {
+            "unitName": "안영",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "154 ",
+            "routeNo": "300",
+            "routeName": "대전남부순환선",
+            "xValue": "127.376478",
+            "yValue": "36.280922"
+        },
+        {
+            "unitName": "낙동JC",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "600 ",
+            "routeNo": "301",
+            "routeName": "상주영천선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "도개",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "611 ",
+            "routeNo": "301",
+            "routeName": "상주영천선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "서군위",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "614 ",
+            "routeNo": "301",
+            "routeName": "상주영천선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "동군위",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "615 ",
+            "routeNo": "301",
+            "routeName": "상주영천선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "신녕",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "616 ",
+            "routeNo": "301",
+            "routeName": "상주영천선",
+            "xValue": null,
+            "yValue": null
+        },
+        {
+            "unitName": "북안",
+            "pageNo": null,
+            "numOfRows": null,
+            "unitCode": "617 ",
+            "routeNo": "301",
+            "routeName": "상주영천선",
+            "xValue": null,
+            "yValue": null
+        }
+    ],
+    "count": 589,
+    "pageNo": 5,
+    "numOfRows": 99,
+    "pageSize": 6,
+    "message": "인증키가 유효합니다.",
+    "code": "SUCCESS"
+}

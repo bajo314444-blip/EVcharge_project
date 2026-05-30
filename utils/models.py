@@ -11,10 +11,12 @@ from sklearn.ensemble import (
 from sklearn.inspection import permutation_importance
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV, KFold
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
+from imblearn.over_sampling import SMOTE
+import warnings
 
 def smape(y_true, y_pred):
     y_true = np.array(y_true)
@@ -145,12 +147,13 @@ class TabularTransformerRegressor:
 def make_feature_matrix(final):
     ml = final.copy()
     ml = pd.get_dummies(ml, columns=["시도", "용도"], dtype=float)
-    feature_cols = ["전기차_전체대수", "전체_충전기대수", "인프라_부하지수"]
+    feature_cols = ["전기차_전체대수", "충전인프라_규모_PCA", "충전기_1대당_평균용량", "인프라_부하지수"]
     feature_cols += [c for c in ml.columns if c.startswith("시도_") or c.startswith("용도_")]
     X = ml[feature_cols].rename(
         columns={
             "전기차_전체대수": "total_ev_count",
-            "전체_충전기대수": "total_charger_count",
+            "충전인프라_규모_PCA": "infra_size_pca",
+            "충전기_1대당_평균용량": "avg_capacity_per_charger",
             "인프라_부하지수": "infra_load_index",
             "시도_경기": "region_gyeonggi",
             "시도_서울": "region_seoul",
@@ -159,10 +162,42 @@ def make_feature_matrix(final):
             "용도_자가용": "usage_private",
         }
     )
+    
+    # 기본 Time Spike 컬럼 추가 (0으로 초기화)
+    for col in ["is_commute_time", "is_holiday", "is_golden_week", "is_weekend"]:
+        if col not in X.columns:
+            X[col] = 0.0
+            
     return X
 
+def apply_smote_for_regression(X_train, y_train, n_bins=5):
+    bins = np.quantile(y_train, np.linspace(0, 1, n_bins + 1))
+    bins[0] = -np.inf
+    bins[-1] = np.inf
+    y_binned = np.digitize(y_train, bins)
+    
+    class_counts = pd.Series(y_binned).value_counts()
+    min_count = class_counts.min()
+    if min_count < 2:
+        return X_train, y_train
+        
+    k_neighbors = min(5, min_count - 1)
+    smote = SMOTE(k_neighbors=k_neighbors, random_state=42)
+    
+    try:
+        X_resampled, _ = smote.fit_resample(X_train, y_binned)
+        knn = KNeighborsRegressor(n_neighbors=k_neighbors)
+        knn.fit(X_train, y_train)
+        y_resampled = knn.predict(X_resampled)
+        if isinstance(y_train, pd.Series):
+            y_resampled = pd.Series(y_resampled)
+        y_resampled[:len(y_train)] = y_train
+        return X_resampled, y_resampled
+    except ValueError:
+        return X_train, y_train
+
 @st.cache_data(show_spinner="예측 모델을 학습하고 평가하는 중입니다...")
-def train_models(final_json):
+def train_models(final_json, use_smote=False):
     final = pd.read_json(StringIO(final_json), orient="split")
     X = make_feature_matrix(final)
     y = final["전력_부하지수"].astype(float)
@@ -175,10 +210,47 @@ def train_models(final_json):
         X_temp, y_temp, info_temp, test_size=1 / 3, random_state=42
     )
 
+    if use_smote:
+        X_train, y_train = apply_smote_for_regression(X_train, y_train)
+        
+    # Time Spike Data Augmentation (가상 시나리오 가중치 학습)
+    X_commute = X_train.copy()
+    X_commute["is_commute_time"] = 1.0
+    y_commute = y_train * 1.3
+    
+    X_weekend = X_train.copy()
+    X_weekend["is_weekend"] = 1.0
+    y_weekend = y_train * 1.5
+    
+    X_holiday = X_train.copy()
+    X_holiday["is_holiday"] = 1.0
+    X_holiday["is_golden_week"] = 1.0
+    y_holiday = y_train * 2.0
+    
+    X_train = pd.concat([X_train, X_commute, X_weekend, X_holiday], ignore_index=True)
+    y_train = pd.concat([y_train, y_commute, y_weekend, y_holiday], ignore_index=True)
+    
+    # 셔플링
+    idx = np.random.permutation(len(X_train))
+    X_train = X_train.iloc[idx].reset_index(drop=True)
+    y_train = y_train.iloc[idx].reset_index(drop=True)
+
+    rf_base = RandomForestRegressor(random_state=42)
+    rf_param_grid = {'max_depth': [3, 5, 10], 'min_samples_leaf': [1, 2, 4]}
+    rf_grid = GridSearchCV(rf_base, rf_param_grid, cv=KFold(n_splits=5, shuffle=True, random_state=42), scoring='neg_mean_squared_error')
+    rf_grid.fit(X_train, y_train)
+    best_rf = rf_grid.best_estimator_
+
+    gb_base = GradientBoostingRegressor(random_state=42)
+    gb_param_grid = {'max_depth': [3, 5], 'learning_rate': [0.05, 0.1]}
+    gb_grid = GridSearchCV(gb_base, gb_param_grid, cv=KFold(n_splits=5, shuffle=True, random_state=42), scoring='neg_mean_squared_error')
+    gb_grid.fit(X_train, y_train)
+    best_gb = gb_grid.best_estimator_
+
     models = {
-        "RandomForest": ("Machine Learning", RandomForestRegressor(max_depth=5, min_samples_leaf=2, random_state=42)),
+        "RandomForest (Tuned)": ("Machine Learning", best_rf),
         "ExtraTrees": ("Machine Learning", ExtraTreesRegressor(max_depth=5, min_samples_leaf=2, random_state=42)),
-        "GradientBoosting": ("Machine Learning", GradientBoostingRegressor(max_depth=3, learning_rate=0.05, random_state=42)),
+        "GradientBoosting (Tuned)": ("Machine Learning", best_gb),
         "HistGradientBoosting": ("Machine Learning", HistGradientBoostingRegressor(max_iter=200, learning_rate=0.05, random_state=42)),
         "KNN": ("Machine Learning", Pipeline([("scale", MinMaxScaler()), ("model", KNeighborsRegressor(n_neighbors=5))])),
         "Numpy_1D_CNN": ("Deep Learning - CNN", NumpyCNN1DRegressor(random_state=42)),
@@ -247,6 +319,8 @@ def train_models(final_json):
         "feature_columns": list(X.columns),
         "X": X,
         "y": y,
+        "X_train": X_train,
+        "y_train": y_train,
         "X_test": X_test,
         "y_test": y_test,
         "info_test": info_test,
