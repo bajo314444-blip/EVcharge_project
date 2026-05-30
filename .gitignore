@@ -37,6 +37,8 @@ dataset/
 catboost_info/
 pictures/
 발표자료_모음/
+archive/
+results/
 
 # Logs and databases
 *.log
