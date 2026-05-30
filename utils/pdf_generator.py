@@ -26,19 +26,16 @@ class ReportPDF(FPDF):
             self.cell(0, 10, f"- {self.page_no()} -", align="C")
 
 def generate_report_pdf(best_name, test_rmse, top3_list, top_features, feature_importance_img=None):
-    # Fonts
-    malgun_path = "C:/Windows/Fonts/malgun.ttf"
-    malgunbd_path = "C:/Windows/Fonts/malgunbd.ttf"
-    font_family = "Malgun" if os.path.exists(malgun_path) else "Nanum"
-
+    # Font Unification (V3.0 - Server-compatible Relative Path in fonts/)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    nanum_path = os.path.join(current_dir, "fonts", "NanumGothic.ttf")
+    nanum_bold_path = os.path.join(current_dir, "fonts", "NanumGothicBold.ttf")
+    
+    font_family = "Nanum"
     pdf = ReportPDF(font_family=font_family)
     
-    if os.path.exists(malgun_path):
-        pdf.add_font("Malgun", style="", fname=malgun_path)
-        pdf.add_font("Malgun", style="B", fname=malgunbd_path)
-    else:
-        pdf.add_font("Nanum", style="", fname="C:/Windows/Fonts/NanumGothic.ttf")
-        pdf.add_font("Nanum", style="B", fname="C:/Windows/Fonts/NanumGothicBold.ttf")
+    pdf.add_font("Nanum", style="", fname=nanum_path)
+    pdf.add_font("Nanum", style="B", fname=nanum_bold_path)
 
     # --- PAGE 1: COVER PAGE ---
     pdf.add_page()
@@ -186,7 +183,14 @@ def generate_report_pdf(best_name, test_rmse, top3_list, top_features, feature_i
     return pdf.output() # returns bytearray
 
 def generate_highway_report_pdf(hw_df, scenario, budget):
-    pdf = ReportPDF('malgun')
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    nanum_path = os.path.join(current_dir, "fonts", "NanumGothic.ttf")
+    nanum_bold_path = os.path.join(current_dir, "fonts", "NanumGothicBold.ttf")
+    
+    font_family = "Nanum"
+    pdf = ReportPDF(font_family=font_family)
+    pdf.add_font("Nanum", style="", fname=nanum_path)
+    pdf.add_font("Nanum", style="B", fname=nanum_bold_path)
     pdf.add_page()
     
     # --- PAGE 1: COVER ---
