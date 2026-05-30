@@ -883,6 +883,6 @@ def render_report(filtered, final_data, model_state):
 </li>
 </ul>
 </div>
-""")
+""", unsafe_allow_html=True)
 
 
