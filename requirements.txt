@@ -16,3 +16,4 @@ kaleido
 networkx
 statsmodels
 imbalanced-learn
+seaborn
