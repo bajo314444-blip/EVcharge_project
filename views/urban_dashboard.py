@@ -28,25 +28,28 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
     col3.metric("최고 전력 부하지수", f"{top_region['전력_부하지수'].iloc[0]:,.2f}" if not top_region.empty else "-")
     col4.metric("학습 기준 최고 모델", model_state["best_name"])
 
-    tabs = st.tabs(
+    active_menu = st.radio(
+        "분석 메뉴 선택",
         [
-            "지도 버블맵",
-            "월별 부하 변화",
-            "설치 시뮬레이션",
-            "예측 모델 비교",
-            "강건성 평가 (Phase 3)",
-            "통계/군집 분석",
-            "SHAP/LIME 설명",
-            "조건 충족표",
-        ]
+            "🗺️ 지도 버블맵",
+            "📈 월별 부하 변화",
+            "💡 설치 시뮬레이션",
+            "📊 예측 모델 비교",
+            "🛡️ 강건성 평가 (Phase 3)",
+            "🧮 통계/군집 분석",
+            "🧠 SHAP/LIME 설명",
+            "📋 조건 충족표",
+        ],
+        horizontal=True,
+        label_visibility="collapsed"
     )
 
-    with tabs[0]:
+    if active_menu == "🗺️ 지도 버블맵":
         st.subheader("현재 부하 버블맵")
         st.caption("지도 레이어에서 자가용과 사업자용을 켜고 끌 수 있습니다.")
         left, right = st.columns([1.35, 0.9])
         with left:
-            st_folium(make_bubble_map(filtered, metric, usage_options), height=650, use_container_width=True)
+            st_folium(make_bubble_map(filtered, metric, usage_options), height=650, use_container_width=True, returned_objects=["last_object_clicked"])
         with right:
             st.markdown("#### 고부하 상위 지역 (TOP 15)")
 
@@ -93,7 +96,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             with rank_tabs[2]:
                 render_rank_table(filtered[filtered["용도"] == "자가용"], "자가용")
 
-    with tabs[1]:
+    elif active_menu == "📈 월별 부하 변화":
         st.subheader("환경부 공공급속 충전기 연월별 부하 변화")
         st.caption("새로 추가한 환경부 2017-2025년 월별 파일을 전처리 단계부터 반영했습니다.")
         available_regions = sorted(monthly_data["지역"].dropna().unique())
@@ -117,7 +120,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             hide_index=True,
         )
 
-    with tabs[2]:
+    elif active_menu == "💡 설치 시뮬레이션":
         st.subheader("통합 설치 및 미래 시뮬레이터 (Time-to-Overload)")
         st.caption("충전기 추가 설치 시, 해당 지역의 부하지수가 어떻게 감소하며 과부하 시점을 얼마나 늦출 수 있는지(생존 궤적) 확인합니다.")
 
@@ -182,9 +185,10 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
                 ),
                 height=300,
                 use_container_width=True,
+                returned_objects=["last_object_clicked"]
             )
 
-    with tabs[3]:
+    elif active_menu == "📊 예측 모델 비교":
         st.subheader("예측 모델 성능 비교")
         st.caption("머신러닝 5개와 딥러닝 2개(CNN, Transformer 계열)를 같은 데이터 분할로 비교합니다.")
 
@@ -255,6 +259,11 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
 
         st.markdown("---")
         st.markdown("### SMOTE 적용 전/후 최고 모델 성능 비교")
+        if model_state_smote is None:
+            with st.spinner("🤖 SMOTE 불균형 오버샘플링을 적용하여 7개 ML/DL 모델을 비동기 재학습 중입니다... (약 20초 소요)"):
+                from utils.models import train_models
+                model_state_smote = train_models(final_data.to_json(orient="split"), use_smote=True)
+                st.session_state["model_state_smote"] = model_state_smote
         best_pre = model_state["metrics"][model_state["metrics"]["Split"]=="Test"].sort_values("RMSE").iloc[0]
         best_post = model_state_smote["metrics"][model_state_smote["metrics"]["Split"]=="Test"].sort_values("RMSE").iloc[0]
         smote_df = pd.DataFrame({
@@ -265,7 +274,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
         })
         st.dataframe(smote_df.round(4), use_container_width=True, hide_index=True)
 
-    with tabs[5]:
+    elif active_menu == "🧮 통계/군집 분석":
         st.subheader("TableOne, t-SNE/UMAP, CCA, 상관분석")
         st.caption("평가 기준의 통계/부분집단 분석 항목을 한 화면에서 확인합니다.")
         table_cols = [
@@ -431,7 +440,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
         fig_box.update_layout(height=450)
         st.plotly_chart(fig_box, use_container_width=True)
 
-    with tabs[4]:
+    elif active_menu == "🛡️ 강건성 평가 (Phase 3)":
         st.subheader("학술적 강건성 평가 및 심화 시뮬레이션")
 
         best_name = model_state["best_name"]
@@ -518,7 +527,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
         fig_surv.update_yaxes(range=[0, 1.05])
         st.plotly_chart(fig_surv, use_container_width=True)
 
-    with tabs[6]:
+    elif active_menu == "🧠 SHAP/LIME 설명":
         st.subheader("SHAP summary / dependence / force plot + LIME 형태 설명")
         st.caption("SHAP 패키지가 있으면 실제 SHAP을 사용하고, 없으면 permutation/local contribution으로 대체합니다.")
         importance = model_state["importance"].head(12)
@@ -558,7 +567,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             st.plotly_chart(fig, use_container_width=True)
             st.caption(f"기준 예측값 {baseline:,.2f}에서 선택 지역 예측값 {pred_value:,.2f}로 이동하는 방향을 보여줍니다.")
 
-    with tabs[7]:
+    elif active_menu == "📋 조건 충족표":
         st.subheader("평가 조건 충족표")
         installed = {}
         for package, module_name in [("tableone", "tableone"), ("shap", "shap"), ("umap-learn", "umap")]:

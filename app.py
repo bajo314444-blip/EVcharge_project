@@ -31,16 +31,16 @@ if control_mode == "도심 행정구역 관제":
     # State Management for Urban Data
     if "final_data" not in st.session_state or st.session_state.get("urban_data_dir") != data_dir:
         try:
-            with st.spinner("데이터 로딩 및 모델 학습 중..."):
+            with st.spinner("데이터 로딩 및 기본 모델 학습 중..."):
                 final_data, monthly_data, hourly_data = load_all_data(data_dir)
                 model_state = train_models(final_data.to_json(orient="split"), use_smote=False)
-                model_state_smote = train_models(final_data.to_json(orient="split"), use_smote=True)
                 
                 st.session_state["final_data"] = final_data
                 st.session_state["monthly_data"] = monthly_data
                 st.session_state["hourly_data"] = hourly_data
                 st.session_state["model_state"] = model_state
-                st.session_state["model_state_smote"] = model_state_smote
+                if "model_state_smote" in st.session_state:
+                    del st.session_state["model_state_smote"]
                 st.session_state["urban_data_dir"] = data_dir
         except Exception as exc:
             st.error(f"데이터를 불러오지 못했습니다: {exc}")
@@ -50,7 +50,7 @@ if control_mode == "도심 행정구역 관제":
     monthly_data = st.session_state["monthly_data"]
     hourly_data = st.session_state["hourly_data"]
     model_state = st.session_state["model_state"]
-    model_state_smote = st.session_state["model_state_smote"]
+    model_state_smote = st.session_state.get("model_state_smote", None)
 
     usage_options, metric, province_filter = render_urban_sidebar(final_data)
 
