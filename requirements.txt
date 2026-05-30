@@ -11,3 +11,8 @@ matplotlib
 shap
 umap-learn
 tableone
+fpdf2
+kaleido
+networkx
+statsmodels
+

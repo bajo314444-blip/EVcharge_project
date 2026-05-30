@@ -1,4 +1,84 @@
-# ⚡ 수도권 전기차 충전소 부하 예측 및 설치 시뮬레이션 서비스
+# 🚀 수도권 전기차 충전소 부하 예측 및 설치 시뮬레이션 서비스 (대통합 아키텍처 및 고성능 시뮬레이터) (V2.0)
+> **Clean Architecture 2단계 기반의 모듈화 고도화 및 학술적 검증 엔진 탑재**
+> 
+> V2.0 버전에서는 물리적 파일 구조를 도메인별 응집력에 따라 축소 단축하고, 고속도로망 최적화 및 8대 학술적 모델 강건성 시뮬레이터를 전면 탑재한 상용 서비스 수준의 웹 관제 솔루션을 제공합니다.
+
+![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
+![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B.svg)
+![Machine Learning](https://img.shields.io/badge/Machine%20Learning-Scikit--learn-orange.svg)
+![Deep Learning](https://img.shields.io/badge/Deep%20Learning-Numpy%20Custom-success.svg)
+![Kaleido](https://img.shields.io/badge/PDF_Engine-Kaleido-blue.svg)
+![FPDF2](https://img.shields.io/badge/Report-FPDF2-green.svg)
+![NetworkX](https://img.shields.io/badge/Network_Graph-NetworkX-orange.svg)
+![Random Forest](https://img.shields.io/badge/Model-Random%20Forest-lightgrey.svg)
+![Gradient Boosting](https://img.shields.io/badge/Model-Gradient%20Boosting-critical.svg)
+![1D-CNN](https://img.shields.io/badge/Model-1D--CNN-red.svg)
+![Tabular Transformer](https://img.shields.io/badge/Model-Tabular%20Transformer-yellow.svg)
+
+## 🌟 V2.0 핵심 업그레이드 기능 (Highlight)
+1.  **🛣️ 고속도로망 최적 입지 제안 (Linear Programming)**
+    *   수도권 주요 고속도로 IC/휴게소 데이터를 공간 조인(BallTree)하여 충전소 용량을 산출하고, 선형 계획법(linprog)을 이용해 한정된 예산 내에서 최대 효율을 내는 최적 입지 대수를 노드별로 제안합니다.
+    *   **상하행선 분리 네트워크 에지 맵**: 명절/출퇴근 혼잡 시나리오별 실시간 교통량 부하를 에지(Edge) 두께와 색상 지도로 가독성 높게 표출합니다.
+2.  **📋 국가 공무 서식 PDF 리포트 엔진**
+    *   FPDF 엔진 및 Plotly 스냅샷 내보내기 도구(`kaleido`)를 융합하여, 원클릭으로 TOP 3 취약지역 분석 및 주요 Feature Importance 바 차트가 깨짐 없이 깔끔하게 각인된 **정부/지자체 보고 양식의 PDF 리포트**를 발행합니다.
+3.  **🛡️ 8대 학술적 모델 검증 및 강건성 평가**
+    *   **부트스트랩 95% 신뢰구간 (Bootstrap CI)** 산출
+    *   **중첩 10-겹 교차검증 (Nested 10-fold CV)**을 통한 과적합 제로 성능 검증
+    *   **공간적 외부 검증 (Spatial External Validation)**으로 미학습 새로운 구(서울/경기/인천 Holdout) 예측 성능 비교
+    *   **적대적 노이즈 방어력 평가**: 가우시안 노이즈 주입 시의 강건도 평가
+    *   **피처 중요도 순차 제거 분석 (Ablation Study)** 민감도 플롯
+    *   **의사결정 곡선 분석 (Decision Curve Analysis - DCA)** 순수 혜택(Net Benefit) 평가
+    *   **생존 분석 시뮬레이터**: 카플란-마이어(Kaplan-Meier) 곡선 기반 과부하 도달 시간(Time-to-Overload) 시뮬레이션
+
+## 📁 V2.0 정비된 디렉토리 구조 (Clean Architecture 2.0)
+V2.0에서는 불필요한 보조 스크립트와 임시 파일을 과감히 정리하고, 다음과 같은 고결합도/고응집성 파일 배치 구조를 구축했습니다.
+
+```text
+📦 EVcharge_project
+ ┣ 📂 archive/                  # [V2.0] 개발 히스토리 격리 보관함
+ ┃ ┣ 📜 debug_shap.py           # SHAP 설명력 디버깅 소스
+ ┃ ┗ 📜 refactor_script.py      # 리팩토링용 보조 소스
+ ┣ 📂 components/               # UI 공통 제사용 컴포넌트
+ ┃ ┗ 📜 sidebar.py              # 멀티뷰 제어 사이드바 컨트롤러
+ ┣ 📂 dataset/                  # 충전소 데이터 및 지오코딩 JSON 데이터
+ ┣ 📂 results/                  # ML 성능 분석 정적 차트 저장소 (01~09번)
+ ┣ 📂 utils/                    # 핵심 연산 및 전처리 코어 엔진 [통합 완료]
+ ┃ ┣ 📜 data_processing.py      # 데이터 처리 파이프라인 및 st.cache 캐싱 레이어 
+ ┃ ┣ 📜 models.py               # ML/DL 회귀 모델 구축, 특징 행렬 생성 및 훈련 로직
+ ┃ ┣ 📜 optimization.py         # 최적 입지 LP 및 모델 강건성/생존분석 알고리즘
+ ┃ ┣ 📜 pdf_generator.py        # FPDF 기반 PDF 국가 보고서 자동 생성 레이아웃
+ ┃ ┣ 📜 visualizations.py      # Folium 지도 인터랙션 및 Plotly 에지 시각화
+ ┃ ┗ 📜 __init__.py
+ ┣ 📂 views/                    # 프론트엔드 라우팅 뷰 [통합 완료]
+ ┃ ┣ 📜 highway_dashboard.py    # 고속도로 시뮬레이션 화면 
+ ┃ ┗ 📜 urban_dashboard.py      # 도심 분석 대시보드 및 리포트 탭 분할 통합 화면
+ ┣ 📜 app.py                    # 최상위 라이트웨이트 라우터 & 상태 관리자
+ ┣ 📜 requirements.txt          # 패키지 의존성 파일
+ ┗ 📜 README.md                 # 프로젝트 명세서 (본 파일)
+```
+
+## 🚀 [V2.0] 추가 의존성 설치 및 구동
+정부 양식의 고품질 PDF 리포트 출력 및 네트워크 그래프, UMAP 등의 시각화 모듈을 완전히 활용하기 위해 다음 의존성이 추가 정의되었습니다.
+
+```bash
+# 1. 툴킷 및 고급 패키지 포함 일괄 설치
+pip install -r requirements.txt
+
+# 2. 애플리케이션 시작
+streamlit run app.py
+```
+
+## 🛠️ V2.0 확장 기술 스택 (Extended Tech Stack)
+*   **Optimization Solver**: `SciPy` (linprog Highs-Solver)
+*   **Network Interaction**: `NetworkX` (상관 관계 및 에지 연결망 분석)
+*   **Image Serialization**: `Kaleido` (Plotly 벡터 차트 고속 PNG 각인 엔진)
+*   **Report Exporter**: `FPDF2` (다중 폰트 및 그리드 시스템 지원 PDF 생성기)
+*   **Dimension Reduction**: `UMAP-learn`, `TSNE`, `PCA`
+
+---
+---
+
+# ⚡ 수도권 전기차 충전소 부하 예측 및 설치 시뮬레이션 서비스 (V1.0)
 > **Seoul Metropolitan Area EV Charging Station Load Prediction & Simulation**
 > 
 > 공공데이터를 활용하여 수도권(서울, 경기, 인천) 전기차 충전 인프라의 과부하 위험 지역을 예측하고, 신규 충전기 설치 시나리오를 시뮬레이션할 수 있는 Streamlit 기반의 인터랙티브 웹 서비스입니다.
@@ -6,6 +86,11 @@
 ![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B.svg)
 ![Machine Learning](https://img.shields.io/badge/Machine%20Learning-Scikit--learn-orange.svg)
+![Deep Learning](https://img.shields.io/badge/Deep%20Learning-Numpy%20Custom-success.svg)
+![Random Forest](https://img.shields.io/badge/Model-Random%20Forest-lightgrey.svg)
+![Gradient Boosting](https://img.shields.io/badge/Model-Gradient%20Boosting-critical.svg)
+![1D-CNN](https://img.shields.io/badge/Model-1D--CNN-red.svg)
+![Tabular Transformer](https://img.shields.io/badge/Model-Tabular%20Transformer-yellow.svg)
 
 ## 📌 주요 기능 (Features)
 - **🗺️ 현재 부하 버블맵**: 시도/시군구별 전력 부하지수 및 인프라 지수를 Folium 지도 위에 시각화 (자가용/사업자용 분리 조회 가능)

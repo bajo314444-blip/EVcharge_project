@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from pathlib import Path
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+import json
+from sklearn.neighbors import BallTree
 
 DEFAULT_DATA_DIR = Path(r"./dataset")
 
@@ -139,8 +143,15 @@ def load_all_data(data_dir_text):
     )
 
     supply_total = pd.merge(built_summary, supply_summary, on=["시도", "시군구"], how="outer")
-    supply_total = supply_total.fillna(0)
     final = pd.merge(demand, supply_total, on=["시도", "시군구"], how="inner")
+    
+    num_cols = ["전기차_전체대수", "총_전력판매량", "총_판매수입", "급속충전기_대수", "완속충전기_대수", "충전소개수", "충전기대수", "총용량_kW"]
+    # Convert appropriate 0s or missing values to NaN for imputation, or just impute existing NaNs from merges
+    imputer = IterativeImputer(random_state=42, max_iter=10)
+    final[num_cols] = imputer.fit_transform(final[num_cols])
+    # Ensure no negative values after imputation
+    final[num_cols] = final[num_cols].clip(lower=0)
+
     final["전체_충전기대수"] = final["급속충전기_대수"] + final["완속충전기_대수"]
     final["전체_충전기대수"] = final["전체_충전기대수"].where(final["전체_충전기대수"] > 0, final["충전기대수"])
     final = final[(final["전체_충전기대수"] > 0) & (final["총용량_kW"] > 0)].copy()
@@ -149,6 +160,20 @@ def load_all_data(data_dir_text):
     final["전력_부하지수"] = final["전력_부하지수"].replace([np.inf, -np.inf], np.nan).fillna(0)
     final["인프라_부하지수"] = final["인프라_부하지수"].replace([np.inf, -np.inf], np.nan).fillna(0)
     final["지역"] = final["시도"] + " " + final["시군구"]
+    
+    # 2.5단계: 피처 엔지니어링 (다중공선성 제거 및 파생 변수 생성)
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler, MinMaxScaler
+    
+    infra_cols = ["급속충전기_대수", "완속충전기_대수", "총용량_kW"]
+    pca = PCA(n_components=1, random_state=42)
+    infra_scaled = StandardScaler().fit_transform(final[infra_cols])
+    pca_raw = pca.fit_transform(infra_scaled)[:, 0]
+    # PCA 특성상 평균이 0이 되고 음수가 발생하므로, 직관적인 해석을 위해 0~100점 척도의 지수(Index)로 변환합니다.
+    final["충전인프라_규모_PCA"] = MinMaxScaler(feature_range=(0, 100)).fit_transform(pca_raw.reshape(-1, 1)).flatten()
+    
+    final["충전기_1대당_평균용량"] = final["총용량_kW"] / final["전체_충전기대수"]
+    final["충전기_1대당_평균용량"] = final["충전기_1대당_평균용량"].replace([np.inf, -np.inf], np.nan).fillna(0)
 
     monthly_cols = [
         "시도",
@@ -194,3 +219,163 @@ def load_all_data(data_dir_text):
 
     hourly = read_csv_safely(data_dir / HOURLY_LOAD_FILE) if (data_dir / HOURLY_LOAD_FILE).exists() else pd.DataFrame()
     return final, monthly_region, hourly
+
+
+def load_highway_data(data_dir_text):
+    data_dir = Path(data_dir_text)
+    hw_dir = data_dir / "highway_adress"
+    if not hw_dir.exists():
+        return pd.DataFrame()
+        
+    highway_nodes = []
+    for fpath in hw_dir.glob("etc_page*.json"):
+        try:
+            with open(fpath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                for item in data.get("list", []):
+                    if item.get("xValue") and item.get("yValue"):
+                        highway_nodes.append({
+                            "unitName": str(item["unitName"]).strip(),
+                            "routeName": str(item.get("routeName", "알수없음")).strip(),
+                            "경도": float(item["xValue"]),
+                            "위도": float(item["yValue"])
+                        })
+        except Exception:
+            pass
+            
+    if not highway_nodes:
+        return pd.DataFrame()
+        
+    hw_df = pd.DataFrame(highway_nodes).dropna(subset=["위도", "경도"])
+    # Some names overlap in upbound/downbound, keep them distinct by coordinate
+    hw_df = hw_df.drop_duplicates(subset=["위도", "경도"])
+    
+    # Load charging stations to match
+    location = read_csv_safely(data_dir / LOCATION_FILE)
+    capacity = read_csv_safely(data_dir / CAPACITY_FILE)
+    
+    location["위도"] = pd.to_numeric(location["위도"], errors="coerce")
+    location["경도"] = pd.to_numeric(location["경도"], errors="coerce")
+    capacity["충전기용량(kw)"] = pd.to_numeric(capacity["충전기용량(kw)"], errors="coerce").fillna(0)
+    
+    # Merge supply
+    if "충전소ID" in capacity.columns and "충전소ID" in location.columns:
+        supply = pd.merge(capacity, location[["충전소ID", "충전소명", "위도", "경도"]], on="충전소ID", how="inner")
+    else:
+        supply = pd.merge(capacity, location[["충전소명", "위도", "경도"]], on="충전소명", how="inner")
+        
+    supply = supply.dropna(subset=["위도", "경도"]).copy()
+    
+    # BallTree Spatial Join
+    hw_coords = np.radians(hw_df[["위도", "경도"]].values)
+    supply_coords = np.radians(supply[["위도", "경도"]].values)
+    
+    tree = BallTree(supply_coords, metric='haversine')
+    
+    # Query within 3km (3 / 6371 radians)
+    radius_km = 3.0
+    radius_rad = radius_km / 6371.0
+    
+    indices, _ = tree.query_radius(hw_coords, r=radius_rad, return_distance=True)
+    
+    hw_capacity = []
+    hw_chargers = []
+    
+    for idx_list in indices:
+        if len(idx_list) > 0:
+            matched_supply = supply.iloc[idx_list]
+            hw_capacity.append(matched_supply["충전기용량(kw)"].sum())
+            hw_chargers.append(len(matched_supply))
+        else:
+            hw_capacity.append(0.0)
+            hw_chargers.append(0)
+            
+    hw_df["총용량_kW"] = hw_capacity
+    hw_df["충전기대수"] = hw_chargers
+    
+    # Max Capacity 제약: 기본 휴게소당 최소 5대, 최대 20대로 가정, 기존 대수가 많으면 더 줌
+    hw_df["Max_Capacity"] = np.clip(hw_df["충전기대수"] * 2, 5, 20)
+    
+    return hw_df
+
+def create_time_spike_features(dates):
+    """
+    datetime 리스트를 받아 Time Spike 4대 변수를 생성하여 DataFrame으로 반환
+    """
+    df = pd.DataFrame({"datetime": pd.to_datetime(dates)})
+    
+    # 1. is_commute_time
+    is_weekday = df["datetime"].dt.dayofweek < 5
+    is_morning_commute = df["datetime"].dt.hour.between(7, 8) # 7:00 ~ 8:59
+    is_evening_commute = df["datetime"].dt.hour.between(17, 18) # 17:00 ~ 18:59
+    df["is_commute_time"] = (is_weekday & (is_morning_commute | is_evening_commute)).astype(int)
+    
+    # 4. is_weekend
+    df["is_weekend"] = (~is_weekday).astype(int)
+    
+    # 2. is_holiday & 3. is_golden_week (simplified heuristic based on custom dictionary)
+    # 실제로는 pytimekr 등을 쓰지만, 프로토타입을 위해 하드코딩된 주요 공휴일 매핑
+    holidays_2024 = [
+        "2024-01-01", "2024-02-09", "2024-02-10", "2024-02-11", "2024-02-12",
+        "2024-03-01", "2024-04-10", "2024-05-05", "2024-05-06", "2024-05-15",
+        "2024-06-06", "2024-08-15", "2024-09-16", "2024-09-17", "2024-09-18",
+        "2024-10-03", "2024-10-09", "2024-12-25"
+    ]
+    golden_weeks = [
+        # 추석 연휴 (주말 포함)
+        "2024-09-14", "2024-09-15", "2024-09-16", "2024-09-17", "2024-09-18",
+        # 5월 징검다리
+        "2024-05-04", "2024-05-05", "2024-05-06"
+    ]
+    
+    date_str = df["datetime"].dt.strftime("%Y-%m-%d")
+    df["is_holiday"] = date_str.isin(holidays_2024).astype(int)
+    df["is_golden_week"] = date_str.isin(golden_weeks).astype(int)
+    
+    return df
+
+
+@st.cache_data(show_spinner="부트스트랩 CI 산출 중...")
+def cached_bootstrap(best_name, _model, X_test, y_test):
+    from utils.optimization import calculate_bootstrap_ci
+    return calculate_bootstrap_ci(_model, X_test, y_test, n_iterations=100)
+
+
+@st.cache_data(show_spinner="적대적 공격 방어력 평가 중...")
+def cached_adversarial(best_name, _model, X_test, y_test):
+    from utils.optimization import run_adversarial_attack
+    return run_adversarial_attack(_model, X_test, y_test)
+
+
+@st.cache_data(show_spinner="피처 민감도 분석 중...")
+def cached_ablation(best_name, _model, X_train, y_train, X_test, y_test, importances):
+    from utils.optimization import run_ablation_study
+    return run_ablation_study(_model, X_train, y_train, X_test, y_test, importances)
+
+
+@st.cache_data(show_spinner="DCA 곡선 산출 중...")
+def cached_dca(best_name, _model, X_test, y_test):
+    from utils.optimization import calculate_dca
+    return calculate_dca(_model, X_test, y_test)
+
+
+@st.cache_data(show_spinner="중첩 10-겹 교차검증 (Nested 10-fold CV) 수행 중... (시간이 걸릴 수 있습니다)")
+def cached_nested_cv(best_name, _model, X, y):
+    from utils.optimization import run_nested_cv
+    return run_nested_cv(_model, X, y)
+
+
+@st.cache_data(show_spinner="공간적 외부 검증(Spatial External Validation) 수행 중...")
+def cached_spatial_external_validation(best_name, _model, X, y, holdout_region):
+    from utils.optimization import run_spatial_external_validation
+    return run_spatial_external_validation(_model, X, y, holdout_region)
+
+
+@st.cache_data(show_spinner="생존 분석 시뮬레이션 중...")
+def cached_survival(final_json, growth_rate):
+    from utils.optimization import run_survival_simulation
+    from io import StringIO
+    final_df = pd.read_json(StringIO(final_json), orient="split")
+    return run_survival_simulation(final_df, growth_rate)
+
+
