@@ -82,9 +82,13 @@ def build_system_context(filtered_data, model_state, control_mode, hw_data=None)
         # Model evaluation information
         best_model_name = "N/A"
         test_rmse = 0.0
-        if model_state and "best_model_name" in model_state:
-            best_model_name = model_state["best_model_name"]
-            test_rmse = model_state.get("test_rmse", 0.0)
+        if model_state and "best_name" in model_state:
+            best_model_name = model_state["best_name"]
+            metrics_df = model_state.get("metrics")
+            if metrics_df is not None and not metrics_df.empty:
+                test_rmse_row = metrics_df[(metrics_df["Model"] == best_model_name) & (metrics_df["Split"] == "Test")]
+                if not test_rmse_row.empty:
+                    test_rmse = float(test_rmse_row["RMSE"].values[0])
             
         context["urban_summary"] = {
             "총_필터링된_행정구역_수": total_districts,
