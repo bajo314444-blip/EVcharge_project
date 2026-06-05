@@ -293,12 +293,15 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             st.info("tableone 패키지가 없어 동일 변수에 대해 평균±표준편차와 t-test p-value를 직접 계산했습니다.")
             st.dataframe(table_output, use_container_width=True, hide_index=True)
 
-        X_embed = model_state["X"].copy()
-        y_embed = model_state["y"]
-        scaled_embed = StandardScaler().fit_transform(X_embed)
-        perplexity = max(5, min(20, len(X_embed) // 4))
-        tsne = TSNE(n_components=2, perplexity=perplexity, random_state=42, init="pca", learning_rate="auto")
-        tsne_xy = tsne.fit_transform(scaled_embed)
+        # t-SNE (사전 계산된 값이 있을 경우 0.01초 로드, 없을 경우 실시간 폴백)
+        if "precomputed_tsne_xy" in model_state:
+            tsne_xy = model_state["precomputed_tsne_xy"]
+        else:
+            scaled_embed = StandardScaler().fit_transform(scaled_embed)
+            perplexity = max(5, min(20, len(X_embed) // 4))
+            tsne = TSNE(n_components=2, perplexity=perplexity, random_state=42, init="pca", learning_rate="auto")
+            tsne_xy = tsne.fit_transform(scaled_embed)
+            
         embed_df = final_data[["지역", "용도"]].copy()
         embed_df["tSNE-1"] = tsne_xy[:, 0]
         embed_df["tSNE-2"] = tsne_xy[:, 1]
@@ -306,16 +309,21 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
         fig = px.scatter(embed_df, x="tSNE-1", y="tSNE-2", color="고부하", symbol="용도", hover_name="지역", title="t-SNE")
         st.plotly_chart(fig, use_container_width=True)
 
-        try:
-            import umap
-
-            reducer = umap.UMAP(random_state=42)
-            umap_xy = reducer.fit_transform(scaled_embed)
-            title = "UMAP"
-        except Exception:
-            reducer = PCA(n_components=2, random_state=42)
-            umap_xy = reducer.fit_transform(scaled_embed)
-            title = "UMAP 패키지 미설치 시 PCA 대체 시각화"
+        # UMAP (사전 계산된 값이 있을 경우 0.01초 로드, 없을 경우 실시간 폴백)
+        if "precomputed_umap_xy" in model_state:
+            umap_xy = model_state["precomputed_umap_xy"]
+            title = model_state.get("precomputed_umap_title", "UMAP")
+        else:
+            try:
+                import umap
+                reducer = umap.UMAP(random_state=42)
+                umap_xy = reducer.fit_transform(scaled_embed)
+                title = "UMAP"
+            except Exception:
+                reducer = PCA(n_components=2, random_state=42)
+                umap_xy = reducer.fit_transform(scaled_embed)
+                title = "UMAP 패키지 미설치 시 PCA 대체 시각화"
+                
         embed_df["UMAP-1"] = umap_xy[:, 0]
         embed_df["UMAP-2"] = umap_xy[:, 1]
         fig = px.scatter(embed_df, x="UMAP-1", y="UMAP-2", color="용도", symbol="고부하", hover_name="지역", title=title)
@@ -340,11 +348,19 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             )
         st.dataframe(pd.DataFrame(corr_rows).round(4), use_container_width=True, hide_index=True)
 
-        cca_x = StandardScaler().fit_transform(final_data[["전기차_전체대수", "충전인프라_규모_PCA", "충전기_1대당_평균용량", "인프라_부하지수"]])
-        cca_y = StandardScaler().fit_transform(final_data[["전력_부하지수"]])
-        cca = CCA(n_components=1)
-        x_c, y_c = cca.fit_transform(cca_x, cca_y)
-        cca_df = pd.DataFrame({"CCA_X": x_c[:, 0], "CCA_Y": y_c[:, 0], "용도": final_data["용도"], "지역": final_data["지역"]})
+        # CCA (사전 계산된 값이 있을 경우 0.01초 로드, 없을 경우 실시간 폴백)
+        if "precomputed_cca_x_c" in model_state and "precomputed_cca_y_c" in model_state:
+            cca_x_c = model_state["precomputed_cca_x_c"]
+            cca_y_c = model_state["precomputed_cca_y_c"]
+        else:
+            cca_x = StandardScaler().fit_transform(final_data[["전기차_전체대수", "충전인프라_규모_PCA", "충전기_1대당_평균용량", "인프라_부하지수"]])
+            cca_y = StandardScaler().fit_transform(final_data[["전력_부하지수"]])
+            cca = CCA(n_components=1)
+            x_c, y_c = cca.fit_transform(cca_x, cca_y)
+            cca_x_c = x_c[:, 0]
+            cca_y_c = y_c[:, 0]
+            
+        cca_df = pd.DataFrame({"CCA_X": cca_x_c, "CCA_Y": cca_y_c, "용도": final_data["용도"], "지역": final_data["지역"]})
         fig = px.scatter(cca_df, x="CCA_X", y="CCA_Y", color="용도", hover_name="지역", title="CCA canonical score")
         st.plotly_chart(fig, use_container_width=True)
 
@@ -448,13 +464,19 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
 
         # 1. Bootstrap CI
         st.markdown(f"#### 1. 부트스트랩 95% 신뢰구간 (Bootstrap 95% CI) - 최우수 모델: {best_name}")
-        ci_rmse, ci_r2, r_scores, r2_scores = cached_bootstrap(best_name, best_model, model_state["X_test"], model_state["y_test"])
+        if "precomputed_bootstrap" in model_state:
+            ci_rmse, ci_r2, r_scores, r2_scores = model_state["precomputed_bootstrap"]
+        else:
+            ci_rmse, ci_r2, r_scores, r2_scores = cached_bootstrap(best_name, best_model, model_state["X_test"], model_state["y_test"])
         st.success(f"**RMSE 95% CI**: {ci_rmse[0]:.4f} ~ {ci_rmse[1]:.4f}  \n**R2 95% CI**: {ci_r2[0]:.4f} ~ {ci_r2[1]:.4f}")
 
         # 1-2. Nested CV
         st.markdown(f"#### 1-2. 중첩 10-겹 교차검증 (Nested 10-fold CV) - 최우수 모델: {best_name}")
         st.caption("외부 10-Fold로 평가, 내부 3-Fold로 튜닝하여 과적합 없는 일반화 성능을 산출합니다.")
-        mean_rmse, std_rmse, outer_scores = cached_nested_cv(best_name, best_model, model_state["X"], model_state["y"])
+        if "precomputed_nested_cv" in model_state:
+            mean_rmse, std_rmse, outer_scores = model_state["precomputed_nested_cv"]
+        else:
+            mean_rmse, std_rmse, outer_scores = cached_nested_cv(best_name, best_model, model_state["X"], model_state["y"])
         st.info(f"**Nested CV 평균 Test RMSE**: {mean_rmse:.4f} ± {std_rmse:.4f}")
 
         # 1-3. Spatial External Validation
@@ -463,7 +485,11 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
 
         holdout_region = st.selectbox("학습에서 배제할 외부 테스트 지역 선택:", ["인천", "서울", "경기"], index=0)
 
-        ext_rmse, ext_mae, ext_r2, ext_err = cached_spatial_external_validation(best_name, best_model, model_state["X"], model_state["y"], holdout_region)
+        precomputed_spatial = model_state.get("precomputed_spatial", {})
+        if holdout_region in precomputed_spatial:
+            ext_rmse, ext_mae, ext_r2, ext_err = precomputed_spatial[holdout_region]
+        else:
+            ext_rmse, ext_mae, ext_r2, ext_err = cached_spatial_external_validation(best_name, best_model, model_state["X"], model_state["y"], holdout_region)
 
         if ext_err:
             st.warning(ext_err)
@@ -488,13 +514,19 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
         # 2. Adversarial Attack
         st.markdown("#### 2. 적대적 공격 방어력 평가 (Adversarial Attack Analysis)")
         st.caption("Test 데이터셋의 모든 피처에 가우시안 노이즈를 강제 주입했을 때의 성능 하락률을 방어력으로 평가합니다.")
-        adv_res = cached_adversarial(best_name, best_model, model_state["X_test"], model_state["y_test"])
+        if "precomputed_adversarial" in model_state:
+            adv_res = model_state["precomputed_adversarial"]
+        else:
+            adv_res = cached_adversarial(best_name, best_model, model_state["X_test"], model_state["y_test"])
         st.dataframe(adv_res.style.background_gradient(cmap="Reds", subset=["Drop_Ratio(%)"]), use_container_width=True, hide_index=True)
 
         # 3. Ablation Study
         st.markdown("#### 3. 피처 중요도 기반 민감도 분석 (Ablation Study)")
         st.caption("중요도가 가장 낮은 피처부터 하나씩 제거하며 성능(RMSE) 저하 폭을 시각화합니다.")
-        abl_res = cached_ablation(best_name, best_model, model_state["X_train"], model_state["y_train"], model_state["X_test"], model_state["y_test"], model_state["importance"])
+        if "precomputed_ablation" in model_state:
+            abl_res = model_state["precomputed_ablation"]
+        else:
+            abl_res = cached_ablation(best_name, best_model, model_state["X_train"], model_state["y_train"], model_state["X_test"], model_state["y_test"], model_state["importance"])
         fig_abl = px.line(abl_res, x="Num_Features", y="RMSE", hover_data=["Removed_Feature"], markers=True, title="Ablation Study: Feature Removal Impact")
         fig_abl.update_xaxes(autorange="reversed")
         st.plotly_chart(fig_abl, use_container_width=True)
@@ -502,7 +534,10 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
         # 4. DCA
         st.markdown("#### 4. 의사결정 곡선 분석 (Decision Curve Analysis - adapted)")
         st.caption("과부하 예측(상위 50~90% 위험도) 시 개입했을 때의 모델 효용성(Net Benefit)을 평가합니다.")
-        dca_res = cached_dca(best_name, best_model, model_state["X_test"], model_state["y_test"])
+        if "precomputed_dca" in model_state:
+            dca_res = model_state["precomputed_dca"]
+        else:
+            dca_res = cached_dca(best_name, best_model, model_state["X_test"], model_state["y_test"])
         fig_dca = px.line(dca_res, x="Threshold_Value", y=["Model_NB", "Treat_All_NB", "Treat_None_NB"], 
                           labels={"value": "Net Benefit", "variable": "Strategy"}, title="Decision Curve Analysis")
         st.plotly_chart(fig_dca, use_container_width=True)
@@ -511,7 +546,12 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
         st.markdown("#### 5. 충전 부하 한계 도달 시간 시뮬레이션 (Survival Analysis)")
         st.caption("각 지역이 현재 인프라 수준에서 버틸 수 있는 한계 시간(Time-to-Overload)을 카플란-마이어(Kaplan-Meier) 커브 형태로 추정합니다.")
         growth_rate = st.slider("전기차 연간 예상 증가율 (%)", min_value=1.0, max_value=20.0, value=5.0, step=1.0) / 100.0
-        surv_res = cached_survival(final_data.to_json(orient="split"), growth_rate)
+        
+        # growth_rate == 0.05 이고 사전 연산된 결과가 존재하면 실시간 계산 스킵 (대기 시간 0초)
+        if abs(growth_rate - 0.05) < 1e-5 and "precomputed_survival_5" in model_state:
+            surv_res = model_state["precomputed_survival_5"]
+        else:
+            surv_res = cached_survival(final_data.to_json(orient="split"), growth_rate)
 
         surv_counts = surv_res["Time_to_Overload"].value_counts().sort_index()
         total = len(surv_res)
