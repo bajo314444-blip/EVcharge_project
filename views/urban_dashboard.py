@@ -293,11 +293,14 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             st.info("tableone 패키지가 없어 동일 변수에 대해 평균±표준편차와 t-test p-value를 직접 계산했습니다.")
             st.dataframe(table_output, use_container_width=True, hide_index=True)
 
+        X_embed = model_state["X"].copy()
+        y_embed = model_state["y"]
+        scaled_embed = StandardScaler().fit_transform(X_embed)
+
         # t-SNE (사전 계산된 값이 있을 경우 0.01초 로드, 없을 경우 실시간 폴백)
         if "precomputed_tsne_xy" in model_state:
             tsne_xy = model_state["precomputed_tsne_xy"]
         else:
-            scaled_embed = StandardScaler().fit_transform(scaled_embed)
             perplexity = max(5, min(20, len(X_embed) // 4))
             tsne = TSNE(n_components=2, perplexity=perplexity, random_state=42, init="pca", learning_rate="auto")
             tsne_xy = tsne.fit_transform(scaled_embed)
