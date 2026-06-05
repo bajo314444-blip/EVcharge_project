@@ -1,6 +1,75 @@
 import streamlit as st
 import google.generativeai as genai
 import json
+import gc
+
+@st.cache_data(show_spinner=False, ttl=600)
+def get_simulation_result(region: str, count: int, power_type: str = "급속") -> str:
+    """
+    지정된 수도권 행정구역에 특정 충전기 타입과 대수를 증설했을 때의 
+    예측 전력 부하지수 감소량 및 전/후 비교 결과를 조회하거나 실시간 계산합니다.
+    
+    Args:
+        region: 분석할 행정구역명 (예: '안양시 동안구', '안양시', '수원시 동안구' 등)
+        count: 설치할 충전기 대수 (예: 10)
+        power_type: 충전기 타입 ('급속' 또는 '완속')
+    Returns:
+        시뮬레이션 전/후 비교 수치가 담긴 상세 요약 텍스트
+    """
+    import numpy as np
+    import pandas as pd
+    from utils.optimization import calculate_single_region_trajectory
+
+    final_data = st.session_state.get("final_data")
+    if final_data is None:
+        return "시스템 에러: 데이터가 세션에 존재하지 않습니다."
+
+    # 1. 지역명 매칭
+    matched = final_data[final_data["지역"].str.contains(region, case=False, na=False)]
+    if matched.empty:
+        matched = final_data[final_data["시군구"].str.contains(region, case=False, na=False)]
+        if matched.empty:
+            return f"검색된 지역 '{region}'을 찾을 수 없습니다. 경기 안양시 동안구 등 수도권 내 정확한 행정구역명을 입력해 주세요."
+
+    # 용량 매핑: 급속 100kW, 완속 7kW 기준
+    added_kw = count * (100.0 if power_type == "급속" else 7.0)
+    critical_threshold = float(final_data["전력_부하지수"].quantile(0.8))
+
+    lines = []
+    lines.append(f"### 🔮 {region} 지역 충전기 증설 시뮬레이션 결과")
+    lines.append(f"- **증설 정책**: {power_type} 충전소 {count}대 증설 (공급 용량: +{added_kw:,.1f} kW)")
+    lines.append(f"- **전력 부하 임계치**: {critical_threshold:,.2f} (상위 20% 고위험 기준선)\n")
+
+    # 매칭된 각 세부 구군별로 루프 실행
+    for idx, row in matched.iterrows():
+        r_name = row["지역"]
+        usage = row["용도"]
+        before_load = float(row["전력_부하지수"])
+        base_load = float(row["총_전력판매량"])
+        capacity = float(row["총용량_kW"])
+
+        after_load = base_load / (capacity + added_kw) if (capacity + added_kw) > 0 else 0
+        reduction_pct = (before_load - after_load) / before_load * 100 if before_load > 0 else 0
+
+        # 생존 분석 (미래 과부하 도달 예측) - 기본 성장률은 5%로 설정
+        traj_df, overload_before, overload_after = calculate_single_region_trajectory(
+            base_load, capacity, 0.05, added_kw, critical_threshold
+        )
+        
+        delay_years = overload_after - overload_before
+        delay_text = f"+{delay_years}년 지연" if delay_years > 0 else "변동 없음"
+        before_txt = f"{overload_before}년 뒤" if overload_before < 15 else "안전 (15년+)"
+        after_txt = f"{overload_after}년 뒤" if overload_after < 15 else "안전 (15년+)"
+
+        lines.append(f"#### 📍 {r_name} ({usage} 기준)")
+        lines.append(f"  - **전력 부하지수**: {before_load:,.2f} ➡️ **{after_load:,.2f}** ({reduction_pct:+.1f}% 감소)")
+        lines.append(f"  - **과부하 도달 시점**: {before_txt} ➡️ **{after_txt}** (지연 효과: {delay_text})")
+        lines.append("")
+
+    # 가비지 컬렉션 강제화로 즉시 메모리 반환
+    gc.collect()
+
+    return "\n".join(lines)
 
 def get_gemini_client():
     # 1. Check secrets first
@@ -270,7 +339,8 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 selected_model_name = st.session_state.get("gemini_selected_model", "gemini-1.5-flash")
                 chat_model = genai.GenerativeModel(
                     model_name=selected_model_name,
-                    system_instruction=system_instruction
+                    system_instruction=system_instruction,
+                    tools=[get_simulation_result]
                 )
                 
                 # Setup chat conversation with context history
@@ -287,6 +357,40 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 # Fetch response
                 with st.spinner("AI 분석가가 데이터를 분석 중입니다..."):
                     response = chat.send_message(prompt)
+                    
+                    # Function Calling loop to handle simulation requests
+                    if response.candidates and response.candidates[0].content.parts:
+                        parts = response.candidates[0].content.parts
+                        for part in parts:
+                            if hasattr(part, "function_call") and part.function_call:
+                                name = part.function_call.name
+                                args = part.function_call.args
+                                
+                                if name == "get_simulation_result":
+                                    region = args.get("region", "")
+                                    count = int(args.get("count", 10))
+                                    power_type = args.get("power_type", "급속")
+                                    
+                                    # Execute precomputed check / real-time fallback
+                                    sim_res = get_simulation_result(region, count, power_type)
+                                    
+                                    # Feedback loop to Gemini LLM with JSON payload fallback
+                                    try:
+                                        func_response_part = genai.types.Part.from_function_response(
+                                            name=name,
+                                            response={"result": sim_res}
+                                        )
+                                    except Exception:
+                                        func_response_part = {
+                                            "function_response": {
+                                                "name": name,
+                                                "response": {"result": sim_res}
+                                            }
+                                        }
+                                    
+                                    response = chat.send_message(func_response_part)
+                                    break
+                                    
                     full_response = response.text
                     
                 message_placeholder.markdown(full_response)
