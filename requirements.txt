@@ -1,6 +1,6 @@
 pandas
 numpy
-scikit-learn
+scikit-learn==1.4.2
 scipy
 streamlit
 folium
@@ -15,6 +15,6 @@ fpdf2
 kaleido
 networkx
 statsmodels
-imbalanced-learn
+imbalanced-learn==0.12.2
 seaborn
 google-generativeai
