@@ -377,7 +377,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             try:
                 import seaborn as sns
     
-                plt.rc('font', family='NanumGothic')
+                plt.rc('font', family='Malgun Gothic')
                 plt.rcParams['axes.unicode_minus'] = False
                 fig_scatter, ax = plt.subplots(figsize=(5, 3.5))
     
@@ -413,7 +413,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
                         G.add_edge(corr_mat.columns[i], corr_mat.columns[j], weight=weight)
             
             if len(G.edges) > 0:
-                plt.rc('font', family='NanumGothic')
+                plt.rc('font', family='Malgun Gothic')
                 plt.rcParams['axes.unicode_minus'] = False
                 fig_net, ax_net = plt.subplots(figsize=(5, 3.5))
                 pos = nx.spring_layout(G, k=5.0, seed=42)
@@ -421,7 +421,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
                 raw_weights = [G[u][v]['weight'] for u,v in edges]
                 nx.draw(
                     G, pos, ax=ax_net, with_labels=True, node_color='lightgreen', 
-                    node_size=500, font_family='NanumGothic', font_size=4, 
+                    node_size=500, font_family='Malgun Gothic', font_size=4, 
                     edge_color=raw_weights, edge_cmap=plt.cm.coolwarm, edge_vmin=-1, edge_vmax=1,
                     width=[abs(w) * 5 for w in raw_weights]
                 )
@@ -683,7 +683,7 @@ def render_report(filtered, final_data, model_state):
     colors = plt.cm.Blues(np.linspace(0.4, 0.9, len(imp_df)))
     
     # 한글 및 유니코드 예외 방지 설정
-    plt.rc('font', family='NanumGothic')
+    plt.rc('font', family='Malgun Gothic')
     plt.rcParams['axes.unicode_minus'] = False
     
     ax.barh(imp_df["Feature"], imp_df["Importance"], color=colors)

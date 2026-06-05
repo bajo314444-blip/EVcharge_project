@@ -24,7 +24,7 @@ try:
     font_path = os.path.join(os.path.dirname(__file__), "utils", "fonts", "NanumGothic.ttf")
     if os.path.exists(font_path):
         fm.fontManager.addfont(font_path)
-        mpl.rc('font', family='NanumGothic')
+        mpl.rc('font', family='Malgun Gothic')
         mpl.rcParams['axes.unicode_minus'] = False
 except Exception as e:
     pass
