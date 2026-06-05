@@ -624,7 +624,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
                 ["CCA", "충족", "전기차/충전기/인프라 지수와 전력 부하지수"],
                 ["correlation analysis 3개", "충족", "Pearson, Spearman, Kendall"],
                 ["통계 분석", "충족", "자가용/사업자용 t-test, TableOne 형태"],
-                ["머신러닝 5개", "충족", "RandomForest, ExtraTrees, GradientBoosting, HistGradientBoosting, KNN"],
+                ["머신러닝 4개", "충족", "RandomForest, ExtraTrees, GradientBoosting, KNN"],
                 ["딥러닝 2개", "충족", "Numpy_1D_CNN, Tabular_Transformer"],
                 ["하이퍼파라미터 튜닝", "충족", "GridSearchCV 적용 완료"],
                 ["부트스트랩 (95% CI)", "충족", "학술적 강건성 평가 탭"],

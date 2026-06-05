@@ -5,7 +5,6 @@ from io import StringIO
 from sklearn.ensemble import (
     ExtraTreesRegressor,
     GradientBoostingRegressor,
-    HistGradientBoostingRegressor,
     RandomForestRegressor,
 )
 from sklearn.inspection import permutation_importance
@@ -309,7 +308,6 @@ def train_models(final_json, use_smote=False):
         "RandomForest (Tuned)": ("Machine Learning", best_rf),
         "ExtraTrees": ("Machine Learning", ExtraTreesRegressor(max_depth=5, min_samples_leaf=2, random_state=42)),
         "GradientBoosting (Tuned)": ("Machine Learning", best_gb),
-        "HistGradientBoosting": ("Machine Learning", HistGradientBoostingRegressor(max_iter=200, learning_rate=0.05, random_state=42)),
         "KNN": ("Machine Learning", Pipeline([("scale", MinMaxScaler()), ("model", KNeighborsRegressor(n_neighbors=5))])),
         "Numpy_1D_CNN": ("Deep Learning - CNN", NumpyCNN1DRegressor(random_state=42)),
         "Tabular_Transformer": ("Deep Learning - Transformer", TabularTransformerRegressor(random_state=42)),
