@@ -242,16 +242,24 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             st.plotly_chart(fig, use_container_width=True)
 
         with sub_tabs[2]:
-            threshold = model_state["y"].quantile(0.7)
             roc_rows = []
             roc_fig = go.Figure()
-            y_test_binary = (model_state["y_test"] >= threshold).astype(int)
-            for name, model in model_state["models"].items():
-                score = model.predict(model_state["X_test"])
-                fpr, tpr, _ = roc_curve(y_test_binary, score)
-                auc_score = auc(fpr, tpr)
-                roc_rows.append({"Model": name, "Group": model_state["model_groups"][name], "AUC": auc_score})
-                roc_fig.add_trace(go.Scatter(x=fpr, y=tpr, mode="lines", name=f"{name} ({auc_score:.3f})"))
+            if "precomputed_roc_data" in model_state:
+                for name, rdata in model_state["precomputed_roc_data"].items():
+                    fpr = rdata["fpr"]
+                    tpr = rdata["tpr"]
+                    auc_score = rdata["auc"]
+                    roc_rows.append({"Model": name, "Group": rdata["group"], "AUC": auc_score})
+                    roc_fig.add_trace(go.Scatter(x=fpr, y=tpr, mode="lines", name=f"{name} ({auc_score:.3f})"))
+            else:
+                threshold = model_state["y"].quantile(0.7)
+                y_test_binary = (model_state["y_test"] >= threshold).astype(int)
+                for name, model in model_state["models"].items():
+                    score = model.predict(model_state["X_test"])
+                    fpr, tpr, _ = roc_curve(y_test_binary, score)
+                    auc_score = auc(fpr, tpr)
+                    roc_rows.append({"Model": name, "Group": model_state["model_groups"][name], "AUC": auc_score})
+                    roc_fig.add_trace(go.Scatter(x=fpr, y=tpr, mode="lines", name=f"{name} ({auc_score:.3f})"))
             roc_fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", name="Random", line={"dash": "dash"}))
             roc_fig.update_layout(title="ROC/AUC: 고부하 위험지역 분류 성능")
             st.plotly_chart(roc_fig, use_container_width=True)

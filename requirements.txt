@@ -17,3 +17,6 @@ networkx
 statsmodels
 seaborn
 google-generativeai
+onnx
+onnxruntime
+skl2onnx

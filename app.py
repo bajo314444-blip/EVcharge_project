@@ -59,21 +59,21 @@ if control_mode == "도심 행정구역 관제":
                 final_data, monthly_data, hourly_data = load_all_data(data_dir)
                 
                 import os
-                import joblib
-                model_path = os.path.join("results", "trained_model_state.joblib")
+                from utils.data_processing import load_precomputed_analytics
+                
+                json_path = os.path.join("results", "precomputed_analytics.json")
+                onnx_path = os.path.join("results", "best_model.onnx")
                 
                 model_state = None
                 model_state_smote = None
                 
-                if os.path.exists(model_path):
+                if os.path.exists(json_path) and os.path.exists(onnx_path):
                     try:
-                        # 사전 학습된 모델 패키지 즉시 로드 (0.1초 소요)
-                        package = joblib.load(model_path)
-                        model_state = package["model_state"]
-                        model_state_smote = package.get("model_state_smote", None)
+                        # ONNX + JSON 이원화 아키텍처 모델 즉시 복원 (0.01초 소요)
+                        model_state, model_state_smote = load_precomputed_analytics(json_path, onnx_path)
                         st.session_state["model_state_smote"] = model_state_smote
                     except Exception as e:
-                        st.warning(f"사전 학습된 모델 파일 로드에 실패하여 즉석 학습으로 전환합니다. (사유: {e})")
+                        st.warning(f"이원화 모델 파일 로드에 실패하여 즉석 학습으로 전환합니다. (사유: {e})")
                         model_state = None
                 
                 if model_state is None:

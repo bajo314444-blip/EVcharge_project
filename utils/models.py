@@ -225,6 +225,23 @@ def make_feature_matrix(final):
         if col not in X.columns:
             X[col] = 0.0
             
+    # FIXED features and order enforcement
+    FIXED_FEATURES = [
+        "total_ev_count",
+        "infra_size_pca",
+        "avg_capacity_per_charger",
+        "infra_load_index",
+        "region_gyeonggi",
+        "region_seoul",
+        "region_incheon",
+        "usage_business",
+        "usage_private",
+        "is_commute_time",
+        "is_holiday",
+        "is_golden_week",
+        "is_weekend"
+    ]
+    X = X.reindex(columns=FIXED_FEATURES, fill_value=0.0)
     return X
 
 def apply_smote_for_regression(X_train, y_train, n_bins=5):
