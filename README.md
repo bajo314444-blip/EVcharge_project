@@ -1,3 +1,59 @@
+# 🚀 수도권 전기차 충전소 부하 예측 및 설치 시뮬레이션 서비스 (ONNX+JSON 이원화 및 지능형 관제 통합) (V4.0)
+> **클라우드 서버 배포 안정성 극대화 및 패키지 역직렬화 병목 원천 차단 (V4.0 이원화 아키텍처)**
+> 
+> V4.0 버전에서는 로컬 환경과 배포 서버 간의 패키지 버전 불일치로 인한 역직렬화 크래시 및 메모리 부족(OOM) 문제를 완전 차단하기 위해 **ONNX + JSON 이원화(Two-track) 구동 아키텍처**를 탑재했습니다. 또한 최저 모델 및 오차 지표 정밀 매핑, **동적 Gemini 모델 스캔 및 바인딩**을 도입하여 지능형 관제 비서의 응답성 및 신뢰도를 상용 서비스 수준으로 끌어올렸습니다.
+
+![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
+![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B.svg)
+![ONNX Runtime](https://img.shields.io/badge/Inference-ONNX_Runtime-blue.svg)
+![Gemini AI](https://img.shields.io/badge/AI_Assistant-Gemini_Flash-success.svg)
+
+## 🌟 V4.0 핵심 구동 및 AI 고도화 기능 (Highlight)
+1. **📦 ONNX 기반 초고속 예측 엔진 (`best_model.onnx`)**
+   - Scikit-Learn 버전 민감도가 높은 모델 직렬화 방식(joblib/pickle)을 폐기하고, 최우수 튜닝 모델을 ONNX 형식으로 변환하여 `onnxruntime`만으로 구동되도록 가볍고 안전하게 고도화했습니다.
+   - 단일/배치 데이터 입력을 통합 처리하는 `ONNXModelWrapper`를 설계하여 기존 Scikit-Learn 예측 인터페이스와 매끄럽게 호환되도록 개발했습니다.
+2. **💾 시각화 및 학술 지표 JSON 데이터 직렬화 (`precomputed_analytics.json`)**
+   - 차원축소(t-SNE/UMAP/CCA) 투영 좌표와 DCA, Bootstrap CI, Nested CV, 적대적 노이즈 평가, Ablation Study, Survival KM 생존곡선 등 무거운 학술 연산을 학습 완료 시점에 선처리하여 JSON 파일로 보관합니다.
+   - 런타임 시 0.01초 내에 파싱 및 Pandas DataFrame 복원을 완료하여 서버의 Rerun 렉과 메모리(OOM) 병목을 소거했습니다.
+3. **📐 고정 피처 구조 수립을 통한 차원 정합성 유지 (`FIXED_FEATURES`)**
+   - 학습과 실시간 추론 시 데이터 피처 구조의 일관성을 확보하기 위해 13개 고정 피처 구조를 강제 적용하였으며, `make_feature_matrix`에서 `reindex`를 수행해 차원 충돌 문제를 원천 예방했습니다.
+4. **🤖 AI 관제비서 (EV-Charge AI) 모델 및 데이터 바인딩 정상화**
+   - **Gemini 모델 동적 스캔**: API Key별 활성화된 모델 목록(`genai.list_models()`)을 동적으로 감지하여 사용 가능한 최적 모델을 가동시켜 404 (Not Found) 에러를 방지했습니다.
+   - **데이터 바인딩 정밀화**: 시스템 컨텍스트의 최적 모델명(`best_name`)과 실제 오차값(RMSE) 매핑 구조를 정상화하고, `지역` 컬럼 매핑을 수정하여 구체적인 행정구역(예: `경기 안양시 동안구`)이 AI 분석에 반영되도록 조치했습니다.
+
+## 📁 V4.0 정비된 디렉토리 구조 (이원화 아키텍처 탑재)
+V4.0 버전에서는 ONNX 모델 및 사전 연산 DB 데이터를 관리하기 위해 `results/` 폴더 내에 `best_model.onnx`와 `precomputed_analytics.json`이 신규 도입되었습니다.
+
+```text
+📦 EVcharge_project
+ ┣ 📂 archive/                  # 개발 히스토리 격리 보관함
+ ┣ 📂 components/               # UI 공통 제사용 컴포넌트
+ ┣ 📂 dataset/                  # 충전소 데이터 및 지오코딩 JSON 데이터
+ ┣ 📂 results/                  # ML 성능 분석 정적 차트 저장소
+ ┃ ┣ 📜 best_model.onnx        # [★V4.0 추가] 최우수 RandomForest ONNX 모델
+ ┃ ┣ 📜 precomputed_analytics.json # [★V4.0 추가] 사전 연산 시각화/학술 지표 DB
+ ┃ ┗ 📜 trained_model_state.joblib # 레거시 호환용 모델 파일
+ ┣ 📂 utils/                    # 핵심 연산 및 전처리 코어 엔진 [V4.0 융합 로더 탑재]
+ ┃ ┣ 📂 fonts/                  # dynamic 한글 나눔고딕 서체 폴더
+ ┃ ┃ ┣ 📜 NanumGothic.ttf
+ ┃ ┃ ┗ 📜 NanumGothicBold.ttf
+ ┃ ┣ 📜 data_processing.py      # 데이터 처리 및 ONNX/JSON 융합 로더 추가
+ ┃ ┣ 📜 models.py               # ML/DL 회귀 모델 구축 및 고정 피처 구조 적용
+ ┃ ┣ 📜 optimization.py         # 최적 입지 LP 및 모델 강건성/DCA/생존분석 알고리즘
+ ┃ ┣ 📜 pdf_generator.py        # PDF 자동 생성 모듈 (Matplotlib Headless 지원)
+ ┃ ┣ 📜 visualizations.py      # Folium 지도 인터랙션 및 Plotly 에지 시각화
+ ┃ ┗ 📜 __init__.py
+ ┣ 📂 views/                    # 프론트엔드 라우팅 뷰
+ ┃ ┣ 📜 highway_dashboard.py    # 고속도로 시뮬레이션 화면 
+ ┃ ┗ 📜 urban_dashboard.py      # 도심 분석 대시보드 및 precomputed ROC 렌더러 연동
+ ┣ 📜 app.py                    # ONNX/JSON 로더 적용 최상위 라우터
+ ┣ 📜 requirements.txt          # 패키지 의존성 파일 (onnx, onnxruntime, skl2onnx 추가)
+ ┗ 📜 README.md                 # 프로젝트 명세서 (본 파일)
+```
+
+---
+---
+
 # 🚀 수도권 전기차 충전소 부하 예측 및 설치 시뮬레이션 서비스 (스마트 UX 성능 최적화 및 Clean Architecture) (V3.0)
 > **클라우드 서버(Streamlit Cloud) 배포 안정성 및 반응 속도 10배 고속화 (V3.0 스마트 UX 패키지)**
 > 
