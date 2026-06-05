@@ -12,11 +12,69 @@ from sklearn.inspection import permutation_importance
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neighbors import KNeighborsRegressor, NearestNeighbors
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
-from imblearn.over_sampling import SMOTE
 import warnings
+
+class CustomSMOTE:
+    def __init__(self, k_neighbors=5, random_state=42):
+        self.k_neighbors = k_neighbors
+        self.random_state = random_state
+
+    def fit_resample(self, X, y):
+        np.random.seed(self.random_state)
+        X_arr = np.array(X)
+        y_arr = np.array(y)
+        
+        unique_classes, class_counts = np.unique(y_arr, return_counts=True)
+        max_count = class_counts.max()
+        
+        X_resampled = [X_arr]
+        y_resampled = [y_arr]
+        
+        for cls, count in zip(unique_classes, class_counts):
+            if count == max_count:
+                continue
+            
+            cls_indices = np.where(y_arr == cls)[0]
+            cls_X = X_arr[cls_indices]
+            
+            n_samples_to_create = max_count - count
+            if n_samples_to_create <= 0:
+                continue
+                
+            k = min(self.k_neighbors, count - 1)
+            if k < 1:
+                indices = np.random.choice(cls_indices, size=n_samples_to_create, replace=True)
+                X_resampled.append(X_arr[indices])
+                y_resampled.append(np.full(n_samples_to_create, cls))
+                continue
+                
+            nn = NearestNeighbors(n_neighbors=k + 1)
+            nn.fit(cls_X)
+            neighbors = nn.kneighbors(cls_X, return_distance=False)[:, 1:]
+            
+            synthetic_X = []
+            for _ in range(n_samples_to_create):
+                idx = np.random.randint(0, count)
+                neighbor_idx = np.random.choice(neighbors[idx])
+                
+                diff = cls_X[neighbor_idx] - cls_X[idx]
+                gap = np.random.rand()
+                synthetic_sample = cls_X[idx] + gap * diff
+                synthetic_X.append(synthetic_sample)
+                
+            X_resampled.append(np.array(synthetic_X))
+            y_resampled.append(np.full(n_samples_to_create, cls))
+            
+        X_out = np.vstack(X_resampled)
+        y_out = np.concatenate(y_resampled)
+        
+        if isinstance(X, pd.DataFrame):
+            X_out = pd.DataFrame(X_out, columns=X.columns)
+            
+        return X_out, y_out
 
 def smape(y_true, y_pred):
     y_true = np.array(y_true)
@@ -182,7 +240,7 @@ def apply_smote_for_regression(X_train, y_train, n_bins=5):
         return X_train, y_train
         
     k_neighbors = min(5, min_count - 1)
-    smote = SMOTE(k_neighbors=k_neighbors, random_state=42)
+    smote = CustomSMOTE(k_neighbors=k_neighbors, random_state=42)
     
     try:
         X_resampled, _ = smote.fit_resample(X_train, y_binned)

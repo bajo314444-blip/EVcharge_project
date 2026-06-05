@@ -15,6 +15,5 @@ fpdf2
 kaleido
 networkx
 statsmodels
-imbalanced-learn
 seaborn
 google-generativeai
