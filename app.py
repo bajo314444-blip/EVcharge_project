@@ -11,6 +11,7 @@ from components.sidebar import render_sidebar, render_urban_sidebar
 # Import views
 from views.urban_dashboard import render_dashboard, render_report
 from views.highway_dashboard import render_highway_dashboard
+from views.ai_assistant import render_ai_assistant
 
 warnings.filterwarnings("ignore")
 
@@ -63,6 +64,7 @@ if control_mode == "도심 행정구역 관제":
     current_view = st.query_params.get("view", "dashboard")
     active_dash = "active" if current_view == "dashboard" else ""
     active_report = "active" if current_view == "report" else ""
+    active_ai = "active" if current_view == "ai" else ""
 
     st.markdown(f'''
     <style>
@@ -105,6 +107,7 @@ if control_mode == "도심 행정구역 관제":
     <div class="bookmark-container">
         <a href="?view=dashboard" class="bookmark-tab {active_dash}" target="_self">대시보드</a>
         <a href="?view=report" class="bookmark-tab {active_report}" target="_self">정책보고서</a>
+        <a href="?view=ai" class="bookmark-tab {active_ai}" target="_self">AI 관제비서</a>
     </div>
     ''', unsafe_allow_html=True)
 
@@ -112,6 +115,8 @@ if control_mode == "도심 행정구역 관제":
         render_dashboard(filtered, top_region, metric, usage_options, final_data, monthly_data, hourly_data, model_state, model_state_smote)
     elif current_view == "report":
         render_report(filtered, final_data, model_state)
+    elif current_view == "ai":
+        render_ai_assistant(filtered, model_state, control_mode)
 
 else:
     # Highway mode
