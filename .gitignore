@@ -38,7 +38,7 @@ catboost_info/
 pictures/
 발표자료_모음/
 archive/
-results/
+results/baseline/
 
 # Logs and databases
 *.log
@@ -57,4 +57,8 @@ kaleido_temp/
 
 # 3. [보안/중요] AI 챗봇 API Key 및 로컬 환경설정 보호
 .streamlit/secrets.toml
+
+# 4. [사전학습] 사전 학습 모델 상태 joblib 파일 추적 허용
+!results/trained_model_state.joblib
+
 
