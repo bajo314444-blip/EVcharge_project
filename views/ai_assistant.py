@@ -15,8 +15,38 @@ def get_gemini_client():
         
     try:
         genai.configure(api_key=api_key)
-        # Verify setup by creating a lightweight model configuration
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        # Programmatically discover available models for the given API key
+        available_model_names = []
+        try:
+            for m in genai.list_models():
+                if hasattr(m, 'supported_generation_methods') and "generateContent" in m.supported_generation_methods:
+                    available_model_names.append(m.name)
+        except Exception:
+            pass
+            
+        candidate_models = [
+            "gemini-1.5-flash",
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-pro",
+            "gemini-1.0-pro",
+        ]
+        
+        selected_model_name = None
+        for candidate in candidate_models:
+            full_candidate = candidate if candidate.startswith("models/") else f"models/{candidate}"
+            if full_candidate in available_model_names:
+                selected_model_name = candidate
+                break
+                
+        if not selected_model_name:
+            if available_model_names:
+                selected_model_name = available_model_names[0].replace("models/", "")
+            else:
+                selected_model_name = "gemini-1.5-flash"
+                
+        st.session_state["gemini_selected_model"] = selected_model_name
+        model = genai.GenerativeModel(selected_model_name)
         return model
     except Exception as e:
         st.error(f"Gemini API 설정 중 오류가 발생했습니다: {e}")
@@ -232,9 +262,10 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
             message_placeholder = st.empty()
             
             try:
-                # Initialize Gemini Model with custom system instruction
+                # Initialize Gemini Model with programmatically selected model name
+                selected_model_name = st.session_state.get("gemini_selected_model", "gemini-1.5-flash")
                 chat_model = genai.GenerativeModel(
-                    model_name="gemini-1.5-flash",
+                    model_name=selected_model_name,
                     system_instruction=system_instruction
                 )
                 
