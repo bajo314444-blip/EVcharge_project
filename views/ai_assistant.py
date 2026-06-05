@@ -73,7 +73,7 @@ def build_system_context(filtered_data, model_state, control_mode, hw_data=None)
             top3_df = filtered_data.sort_values("전력_부하지수", ascending=False).head(3)
             for _, row in top3_df.iterrows():
                 top3.append({
-                    "지역": f"{row.get('시도', '')} {row.get('구군', '')}",
+                    "지역": row.get("지역", f"{row.get('시도', '')} {row.get('구군', '')}"),
                     "용도": row.get("용도", "N/A"),
                     "전력_부하지수": float(row.get("전력_부하지수", 0.0)),
                     "인프라_부하지수": float(row.get("인프라_부하지수", 0.0))
