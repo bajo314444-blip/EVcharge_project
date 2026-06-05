@@ -61,4 +61,8 @@ kaleido_temp/
 # 4. [사전학습] 사전 학습 모델 상태 joblib 파일 추적 허용
 !results/trained_model_state.joblib
 
+# 5. 임시 검증 스크립트 격리
+scratch/
+
+
 
