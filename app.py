@@ -15,6 +15,29 @@ from views.ai_assistant import render_ai_assistant
 
 warnings.filterwarnings("ignore")
 
+# 1. Matplotlib 한글 폰트 설정 (OS 전체 폰트 스캔 방지 및 한글 깨짐 해결)
+try:
+    import matplotlib as mpl
+    import matplotlib.font_manager as fm
+    import os
+    
+    font_path = os.path.join(os.path.dirname(__file__), "utils", "fonts", "NanumGothic.ttf")
+    if os.path.exists(font_path):
+        fm.fontManager.addfont(font_path)
+        mpl.rc('font', family='NanumGothic')
+        mpl.rcParams['axes.unicode_minus'] = False
+except Exception as e:
+    pass
+
+# 2. Plotly 전역 폰트 Noto Sans KR로 강제 적용
+try:
+    import plotly.io as pio
+    if "streamlit" in pio.templates:
+        pio.templates["streamlit"].layout.font.family = "Noto Sans KR"
+    pio.templates.default = "streamlit"
+except Exception as e:
+    pass
+
 st.set_page_config(
     page_title="수도권 전기차 충전소 부하 예측",
     layout="wide",
@@ -32,16 +55,29 @@ if control_mode == "도심 행정구역 관제":
     # State Management for Urban Data
     if "final_data" not in st.session_state or st.session_state.get("urban_data_dir") != data_dir:
         try:
-            with st.spinner("데이터 로딩 및 기본 모델 학습 중..."):
+            with st.spinner("데이터 로딩 및 사전 학습 모델 복원 중..."):
                 final_data, monthly_data, hourly_data = load_all_data(data_dir)
-                model_state = train_models(final_data.to_json(orient="split"), use_smote=False)
+                
+                import os
+                import joblib
+                model_path = os.path.join("results", "trained_model_state.joblib")
+                
+                if os.path.exists(model_path):
+                    # 사전 학습된 모델 패키지 즉시 로드 (0.1초 소요)
+                    package = joblib.load(model_path)
+                    model_state = package["model_state"]
+                    model_state_smote = package["model_state_smote"]
+                    st.session_state["model_state_smote"] = model_state_smote
+                else:
+                    # 폴백: 파일이 없는 경우 실시간으로 즉석 학습 수행
+                    model_state = train_models(final_data.to_json(orient="split"), use_smote=False)
+                    if "model_state_smote" in st.session_state:
+                        del st.session_state["model_state_smote"]
                 
                 st.session_state["final_data"] = final_data
                 st.session_state["monthly_data"] = monthly_data
                 st.session_state["hourly_data"] = hourly_data
                 st.session_state["model_state"] = model_state
-                if "model_state_smote" in st.session_state:
-                    del st.session_state["model_state_smote"]
                 st.session_state["urban_data_dir"] = data_dir
         except Exception as exc:
             st.error(f"데이터를 불러오지 못했습니다: {exc}")
@@ -68,6 +104,21 @@ if control_mode == "도심 행정구역 관제":
 
     st.markdown(f'''
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+    
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], .main {{
+        font-family: 'Noto Sans KR', sans-serif !important;
+    }}
+    
+    /* Plotly 한글 폰트 상속 강제 */
+    .js-plotly-plot .plotly .xaxislayer-above, 
+    .js-plotly-plot .plotly .yaxislayer-above, 
+    .js-plotly-plot .plotly .gtitle, 
+    .js-plotly-plot .plotly .xtick, 
+    .js-plotly-plot .plotly .ytick {{
+        font-family: 'Noto Sans KR', sans-serif !important;
+    }}
+
     .bookmark-container {{
         position: fixed;
         right: 0;

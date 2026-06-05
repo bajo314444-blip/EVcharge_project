@@ -77,6 +77,27 @@ def make_tableone(final_data, table_cols):
             )
         return "fallback", pd.DataFrame(rows)
 
+@st.cache_data(show_spinner="SHAP 기여도 분석 및 요약 플롯 생성 중...")
+def get_cached_shap_values(best_name, _model, X_sample):
+    import shap
+    explainer = shap.Explainer(_model.predict, X_sample)
+    shap_values = explainer(X_sample)
+    return shap_values
+
+@st.cache_data(show_spinner="지역별 LIME/Force plot 값 계산 중...")
+def get_cached_local_shap(best_name, _model, X_sample, local_x):
+    import shap
+    explainer = shap.Explainer(_model.predict, X_sample)
+    local_exp = explainer(local_x)
+    try:
+        base_val = explainer.expected_value
+    except AttributeError:
+        base_val = local_exp.base_values[0] if hasattr(local_exp, 'base_values') else 0
+    if isinstance(base_val, (list, np.ndarray)):
+        base_val = base_val[0]
+    vals = local_exp.values[0] if hasattr(local_exp, 'values') else local_exp[0]
+    return base_val, vals
+
 def render_shap_or_fallback(model_state, selected_feature, local_x=None):
     best_model = model_state["models"][model_state["best_name"]]
     X_all = model_state["X"]
@@ -85,8 +106,7 @@ def render_shap_or_fallback(model_state, selected_feature, local_x=None):
         import shap
 
         sample = X_all.sample(min(60, len(X_all)), random_state=42)
-        explainer = shap.Explainer(best_model.predict, sample)
-        shap_values = explainer(sample)
+        shap_values = get_cached_shap_values(model_state["best_name"], best_model, sample)
 
         st.success("SHAP 패키지를 사용해 summary plot을 생성했습니다.")
         fig = plt.figure(figsize=(7, 4.5))
@@ -94,17 +114,7 @@ def render_shap_or_fallback(model_state, selected_feature, local_x=None):
         st.pyplot(fig, clear_figure=True, use_container_width=False)
 
         if local_x is not None and len(local_x) > 0:
-            local_exp = explainer(local_x)
-            
-            try:
-                base_val = explainer.expected_value
-            except AttributeError:
-                base_val = local_exp.base_values[0] if hasattr(local_exp, 'base_values') else 0
-                
-            if isinstance(base_val, (list, np.ndarray)):
-                base_val = base_val[0]
-                
-            vals = local_exp.values[0] if hasattr(local_exp, 'values') else local_exp[0]
+            base_val, vals = get_cached_local_shap(model_state["best_name"], best_model, sample, local_x)
             
             force = shap.force_plot(
                 base_val,

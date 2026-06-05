@@ -379,3 +379,15 @@ def cached_survival(final_json, growth_rate):
     return run_survival_simulation(final_df, growth_rate)
 
 
+@st.cache_data(show_spinner="Partial Dependence 계산 중...")
+def cached_partial_dependence(best_name, _model, X_all, selected_feature):
+    grid = np.linspace(X_all[selected_feature].quantile(0.05), X_all[selected_feature].quantile(0.95), 30)
+    pd_rows = []
+    for value in grid:
+        X_tmp = X_all.copy()
+        X_tmp[selected_feature] = value
+        pd_rows.append({"Feature value": value, "Mean prediction": _model.predict(X_tmp).mean()})
+    return pd.DataFrame(pd_rows)
+
+
+

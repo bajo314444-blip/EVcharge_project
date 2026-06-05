@@ -194,16 +194,16 @@ def generate_highway_report_pdf(hw_df, scenario, budget):
     pdf.add_page()
     
     # --- PAGE 1: COVER ---
-    pdf.set_font('malgun', style="B", size=24)
+    pdf.set_font(font_family, style="B", size=24)
     pdf.set_y(100)
     pdf.cell(0, 15, "하이브리드 지능형 고속도로망 관제 보고서", border=0, align="C", new_x="LMARGIN", new_y="NEXT")
     
-    pdf.set_font('malgun', style="", size=16)
+    pdf.set_font(font_family, style="", size=16)
     pdf.cell(0, 10, f"- {scenario} 대비 최적화 결과 -", border=0, align="C", new_x="LMARGIN", new_y="NEXT")
     
     # --- PAGE 2: SUMMARY ---
     pdf.add_page()
-    pdf.set_font('malgun', style="B", size=16)
+    pdf.set_font(font_family, style="B", size=16)
     pdf.cell(0, 15, "고속도로망 확충 시뮬레이션 요약", border=0, align="L", new_x="LMARGIN", new_y="NEXT")
     
     html = f"""

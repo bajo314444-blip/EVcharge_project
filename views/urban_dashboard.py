@@ -16,7 +16,7 @@ import networkx as nx
 
 from utils.visualizations import make_bubble_map, make_tableone, render_shap_or_fallback, render_highway_edge_plot
 from utils.models import make_feature_matrix
-from utils.data_processing import cached_bootstrap, cached_adversarial, cached_ablation, cached_dca, cached_nested_cv, cached_spatial_external_validation, cached_survival
+from utils.data_processing import cached_bootstrap, cached_adversarial, cached_ablation, cached_dca, cached_nested_cv, cached_spatial_external_validation, cached_survival, cached_partial_dependence
 from utils.pdf_generator import generate_report_pdf, generate_highway_report_pdf
 from utils.optimization import optimize_highway_chargers, calculate_single_region_trajectory
 
@@ -377,7 +377,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             try:
                 import seaborn as sns
     
-                plt.rc('font', family='Malgun Gothic')
+                plt.rc('font', family='NanumGothic')
                 plt.rcParams['axes.unicode_minus'] = False
                 fig_scatter, ax = plt.subplots(figsize=(5, 3.5))
     
@@ -413,7 +413,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
                         G.add_edge(corr_mat.columns[i], corr_mat.columns[j], weight=weight)
             
             if len(G.edges) > 0:
-                plt.rc('font', family='Malgun Gothic')
+                plt.rc('font', family='NanumGothic')
                 plt.rcParams['axes.unicode_minus'] = False
                 fig_net, ax_net = plt.subplots(figsize=(5, 3.5))
                 pos = nx.spring_layout(G, k=5.0, seed=42)
@@ -421,7 +421,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
                 raw_weights = [G[u][v]['weight'] for u,v in edges]
                 nx.draw(
                     G, pos, ax=ax_net, with_labels=True, node_color='lightgreen', 
-                    node_size=500, font_family='Malgun Gothic', font_size=4, 
+                    node_size=500, font_family='NanumGothic', font_size=4, 
                     edge_color=raw_weights, edge_cmap=plt.cm.coolwarm, edge_vmin=-1, edge_vmax=1,
                     width=[abs(w) * 5 for w in raw_weights]
                 )
@@ -586,14 +586,9 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
         shap_ok = render_shap_or_fallback(model_state, selected_feature, local_x)
 
         best_model = model_state["models"][model_state["best_name"]]
-        X_all = model_state["X"].copy()
-        grid = np.linspace(X_all[selected_feature].quantile(0.05), X_all[selected_feature].quantile(0.95), 30)
-        pd_rows = []
-        for value in grid:
-            X_tmp = X_all.copy()
-            X_tmp[selected_feature] = value
-            pd_rows.append({"Feature value": value, "Mean prediction": best_model.predict(X_tmp).mean()})
-        fig = px.line(pd.DataFrame(pd_rows), x="Feature value", y="Mean prediction", markers=True, title="Partial dependence")
+        X_all = model_state["X"]
+        pd_df = cached_partial_dependence(model_state["best_name"], best_model, X_all, selected_feature)
+        fig = px.line(pd_df, x="Feature value", y="Mean prediction", markers=True, title="Partial dependence")
         st.plotly_chart(fig, use_container_width=True)
 
         if local_x is not None and len(local_x) > 0:
@@ -688,7 +683,7 @@ def render_report(filtered, final_data, model_state):
     colors = plt.cm.Blues(np.linspace(0.4, 0.9, len(imp_df)))
     
     # 한글 및 유니코드 예외 방지 설정
-    plt.rc('font', family='Malgun Gothic')
+    plt.rc('font', family='NanumGothic')
     plt.rcParams['axes.unicode_minus'] = False
     
     ax.barh(imp_df["Feature"], imp_df["Importance"], color=colors)
