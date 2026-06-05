@@ -62,14 +62,22 @@ if control_mode == "도심 행정구역 관제":
                 import joblib
                 model_path = os.path.join("results", "trained_model_state.joblib")
                 
+                model_state = None
+                model_state_smote = None
+                
                 if os.path.exists(model_path):
-                    # 사전 학습된 모델 패키지 즉시 로드 (0.1초 소요)
-                    package = joblib.load(model_path)
-                    model_state = package["model_state"]
-                    model_state_smote = package["model_state_smote"]
-                    st.session_state["model_state_smote"] = model_state_smote
-                else:
-                    # 폴백: 파일이 없는 경우 실시간으로 즉석 학습 수행
+                    try:
+                        # 사전 학습된 모델 패키지 즉시 로드 (0.1초 소요)
+                        package = joblib.load(model_path)
+                        model_state = package["model_state"]
+                        model_state_smote = package.get("model_state_smote", None)
+                        st.session_state["model_state_smote"] = model_state_smote
+                    except Exception as e:
+                        st.warning(f"사전 학습된 모델 파일 로드에 실패하여 즉석 학습으로 전환합니다. (사유: {e})")
+                        model_state = None
+                
+                if model_state is None:
+                    # 폴백: 파일이 없거나 로드에 실패한 경우 실시간으로 즉석 학습 수행
                     model_state = train_models(final_data.to_json(orient="split"), use_smote=False)
                     if "model_state_smote" in st.session_state:
                         del st.session_state["model_state_smote"]
