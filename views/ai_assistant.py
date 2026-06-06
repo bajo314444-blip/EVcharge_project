@@ -227,6 +227,53 @@ def run_dr_simulation(region: str, intervention_type: str = "V2G_Peak_Shaving") 
     gc.collect()
     return "\n".join(lines)
 
+@st.cache_data(show_spinner=False, ttl=600)
+def get_top_regions(n: int = 10, metric: str = "전력_부하지수") -> str:
+    """
+    수도권 내에서 전력 부하지수 또는 인프라 부하지수가 가장 높은 상위 N개 지역의 상세 통계 테이블을 조회합니다.
+    
+    Args:
+        n: 조회할 상위 지역 개수 (예: 10)
+        metric: 정렬 기준이 되는 지표 ('전력_부하지수' 또는 '인프라_부하지수')
+    Returns:
+        상위 N개 지역의 통계 정보가 담긴 마크다운 표
+    """
+    import pandas as pd
+    import gc
+
+    final_data = st.session_state.get("final_data")
+    if final_data is None:
+        return "시스템 에러: 데이터가 세션에 존재하지 않습니다."
+
+    # 지표명 매핑 (영문/국문 허용)
+    if "인프라" in metric or "infra" in metric.lower():
+        sort_col = "인프라_부하지수"
+    else:
+        sort_col = "전력_부하지수"
+
+    if sort_col not in final_data.columns:
+        return f"에러: 지표 '{sort_col}'를 데이터셋에서 찾을 수 없습니다."
+
+    # 상위 N개 정렬
+    top_df = final_data.sort_values(sort_col, ascending=False).head(n)
+    
+    lines = []
+    lines.append(f"### 📊 수도권 {sort_col} 상위 {n}개 우려지역")
+    lines.append("| 순위 | 지역명 | 용도 | 전력 부하지수 | 인프라 부하지수 | 전체 충전기 대수 | 총용량 (kW) |")
+    lines.append("| :--- | :--- | :--- | :---: | :---: | :---: | :---: |")
+    
+    for idx, (_, row) in enumerate(top_df.iterrows(), 1):
+        r_name = row["지역"]
+        usage = row["용도"]
+        p_load = float(row["전력_부하지수"])
+        i_load = float(row["인프라_부하지수"])
+        chargers = int(row["전체_충전기대수"])
+        capacity = float(row["총용량_kW"])
+        lines.append(f"| {idx} | {r_name} | {usage} | {p_load:,.2f} | {i_load:,.2f} | {chargers:,}대 | {capacity:,.1f} kW |")
+
+    gc.collect()
+    return "\n".join(lines)
+
 def get_gemini_client():
     # 1. Check secrets first
     api_key = st.secrets.get("GEMINI_API_KEY")
@@ -446,6 +493,7 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
     2. 주요 위험 지역(TOP 3 고위험 우려지역 등)의 전력 및 인프라 부하지수를 해석해 주십시오.
     3. 예측 모델에 관해 묻는다면, 현재 최적 모델명과 Test RMSE 오차를 토대로 과학적 타당성을 설명해 주십시오.
     4. 분석 내용에 표나 불릿 포인트를 적극적으로 활용하여 공공 보고서처럼 가독성 높게 답변하십시오.
+    5. 사용자가 상위 여러 지역(예: TOP 5, TOP 10 등)의 부하지수 목록이나 테이블을 요청하는 경우, get_top_regions 툴을 적극적으로 호출하여 실시간 통계 표를 사용자에게 제시하십시오.
     """
 
     # Session State Chat History Init
@@ -500,7 +548,7 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 chat_model = genai.GenerativeModel(
                     model_name=selected_model_name,
                     system_instruction=system_instruction,
-                    tools=[get_simulation_result, get_shap_analysis, run_dr_simulation]
+                    tools=[get_simulation_result, get_shap_analysis, run_dr_simulation, get_top_regions]
                 )
                 
                 # Setup chat conversation with context history
@@ -538,6 +586,10 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                                     region = args.get("region", "")
                                     intervention_type = args.get("intervention_type", "V2G_Peak_Shaving")
                                     sim_res = run_dr_simulation(region, intervention_type)
+                                elif name == "get_top_regions":
+                                    n = int(args.get("n", 10))
+                                    metric = args.get("metric", "전력_부하지수")
+                                    sim_res = get_top_regions(n, metric)
                                 else:
                                     sim_res = "알 수 없는 함수 호출입니다."
                                     
