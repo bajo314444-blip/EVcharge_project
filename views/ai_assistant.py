@@ -284,7 +284,7 @@ def call_openai_compatible_api(provider: str, api_key: str, messages: list, tool
     import json
     
     url = "https://api.groq.com/openai/v1/chat/completions"
-    model = "llama-3.1-70b-versatile"
+    model = "llama-3.3-70b-versatile"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
