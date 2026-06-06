@@ -276,30 +276,21 @@ def get_top_regions(n: int = 10, metric: str = "전력_부하지수") -> str:
 
 def call_openai_compatible_api(provider: str, api_key: str, messages: list, tools: list = None) -> tuple:
     """
-    Groq 또는 OpenRouter의 OpenAI 호환 API를 호출합니다.
+    Groq의 OpenAI 호환 API를 호출합니다.
     Returns:
         (assistant_message_content, tool_calls_list)
     """
     import requests
     import json
     
-    if provider == "Groq (Llama 3)":
-        url = "https://api.groq.com/openai/v1/chat/completions"
-        model = "llama-3.1-70b-versatile"
-    else: # OpenRouter
-        url = "https://openrouter.ai/api/v1/chat/completions"
-        model = "meta-llama/llama-3.1-8b-instruct:free"
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    model = "llama-3.1-70b-versatile"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
     
-    # OpenRouter requires extra headers
-    if provider != "Groq (Llama 3)":
-        headers["HTTP-Referer"] = "https://github.com/pillar-dv/EVcharge_project"
-        headers["X-Title"] = "EV-Charge AI Assistant"
-
     payload = {
         "model": model,
         "messages": messages,
@@ -486,11 +477,13 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
 
     # API configuration and keys retrieval
     current_provider = st.session_state.get("ai_provider", "Gemini (Google)")
+    if current_provider not in ["Gemini (Google)", "Groq (Llama 3)"]:
+        current_provider = "Gemini (Google)"
+        st.session_state["ai_provider"] = current_provider
     
     # 1. Retrieve keys from st.secrets first (Backend only, never sent to frontend)
     gemini_secret_key = st.secrets.get("GEMINI_API_KEY")
     groq_secret_key = st.secrets.get("GROQ_API_KEY")
-    openrouter_secret_key = st.secrets.get("OPENROUTER_API_KEY")
     
     # Check if we have key for the active provider
     active_key = None
@@ -499,16 +492,11 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
             active_key = gemini_secret_key
         else:
             active_key = st.session_state.get("user_gemini_api_key")
-    elif current_provider == "Groq (Llama 3)":
+    else: # Groq (Llama 3)
         if groq_secret_key:
             active_key = groq_secret_key
         else:
             active_key = st.session_state.get("user_groq_api_key")
-    else: # OpenRouter
-        if openrouter_secret_key:
-            active_key = openrouter_secret_key
-        else:
-            active_key = st.session_state.get("user_openrouter_api_key")
 
     # Expand settings UI
     with st.expander("⚙️ AI 관제비서 API 및 엔진 설정", expanded=not active_key):
@@ -516,8 +504,8 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
         with provider_col:
             selected_prov = st.selectbox(
                 "AI 서비스 제공자",
-                ["Gemini (Google)", "Groq (Llama 3)", "OpenRouter (무료 모델)"],
-                index=["Gemini (Google)", "Groq (Llama 3)", "OpenRouter (무료 모델)"].index(current_provider),
+                ["Gemini (Google)", "Groq (Llama 3)"],
+                index=["Gemini (Google)", "Groq (Llama 3)"].index(current_provider),
                 key="ai_provider_input"
             )
             if selected_prov != current_provider:
@@ -530,8 +518,6 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
             if selected_prov == "Gemini (Google)" and gemini_secret_key:
                 has_secret = True
             elif selected_prov == "Groq (Llama 3)" and groq_secret_key:
-                has_secret = True
-            elif selected_prov == "OpenRouter (무료 모델)" and openrouter_secret_key:
                 has_secret = True
                 
             if has_secret:
@@ -550,7 +536,7 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                     if gemini_key and gemini_key != st.session_state.get("user_gemini_api_key"):
                         st.session_state["user_gemini_api_key"] = gemini_key
                         st.rerun()
-                elif selected_prov == "Groq (Llama 3)":
+                else: # Groq (Llama 3)
                     groq_key = st.text_input(
                         "Groq API Key 입력 (임시)",
                         type="password",
@@ -560,17 +546,6 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                     )
                     if groq_key and groq_key != st.session_state.get("user_groq_api_key"):
                         st.session_state["user_groq_api_key"] = groq_key
-                        st.rerun()
-                else:
-                    openrouter_key = st.text_input(
-                        "OpenRouter API Key 입력 (임시)",
-                        type="password",
-                        placeholder="API Key를 입력하세요",
-                        value=st.session_state.get("user_openrouter_api_key", ""),
-                        key="user_openrouter_key_input_new"
-                    )
-                    if openrouter_key and openrouter_key != st.session_state.get("user_openrouter_api_key"):
-                        st.session_state["user_openrouter_api_key"] = openrouter_key
                         st.rerun()
                     
     if not active_key:
@@ -788,7 +763,7 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                                         
                         full_response = response.text
                 else:
-                    # OpenAI-compatible multi-provider logic (Groq / OpenRouter)
+                    # OpenAI-compatible multi-provider logic (Groq)
                     openai_tools = [
                         {
                             "type": "function",
