@@ -274,6 +274,30 @@ def get_top_regions(n: int = 10, metric: str = "전력_부하지수") -> str:
     gc.collect()
     return "\n".join(lines)
 
+def generate_report_from_conversation(region: str) -> str:
+    """
+    사용자가 특정 행정구역 분석 보고서 출력을 원할 때 호출되어, 해당 지역의 상세 통계, 예측 부하지수 및 정책 제안이 포함된 맞춤형 PDF 보고서를 생성하고 다운로드 링크를 준비합니다.
+    
+    Args:
+        region: 보고서를 발간할 행정구역명 (예: '안양시', '부천시' 등)
+    Returns:
+        보고서 PDF 파일 생성 완료 메시지 및 안내 문구
+    """
+    from utils.pdf_generator import generate_regional_report_pdf
+    
+    final_data = st.session_state.get("final_data")
+    hourly_data = st.session_state.get("hourly_data")
+    if final_data is None:
+        return "시스템 에러: 데이터를 로드하지 못했습니다."
+        
+    try:
+        pdf_bytes = generate_regional_report_pdf(region, final_data, hourly_data)
+        st.session_state["pdf_report_bytes"] = pdf_bytes
+        st.session_state["pdf_report_region"] = region
+        return f"성공적으로 {region} 지역의 맞춤형 관제 분석 보고서 PDF(3페이지 분량)가 생성되었습니다. 답변창 하단의 다운로드 버튼을 클릭하여 저장하십시오."
+    except Exception as e:
+        return f"보고서 PDF 생성 실패: {str(e)}"
+
 def call_openai_compatible_api(provider: str, api_key: str, messages: list, tools: list = None) -> tuple:
     """
     Groq의 OpenAI 호환 API를 호출합니다.
@@ -651,9 +675,20 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
         st.session_state.messages = []
 
     # Display chat messages from history on app rerun
-    for message in st.session_state.messages:
+    for idx, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            if message["role"] == "assistant" and idx == len(st.session_state.messages) - 1:
+                pdf_bytes = st.session_state.get("pdf_report_bytes")
+                pdf_region = st.session_state.get("pdf_report_region")
+                if pdf_bytes and pdf_region and f"{pdf_region} 지역의 맞춤형 관제 분석 보고서 PDF" in message["content"]:
+                    st.download_button(
+                        label=f"⬇️ {pdf_region} 관제 분석 보고서 다운로드 (PDF)",
+                        data=pdf_bytes,
+                        file_name=f"{pdf_region}_EV_charge_report.pdf",
+                        mime="application/pdf",
+                        key=f"dl_btn_{idx}"
+                    )
 
     # Suggestion Chips
     st.markdown("##### 💡 추천 질문 바로 하기")
@@ -699,7 +734,7 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                     chat_model = genai.GenerativeModel(
                         model_name=selected_model_name,
                         system_instruction=system_instruction,
-                        tools=[get_simulation_result, get_shap_analysis, run_dr_simulation, get_top_regions]
+                        tools=[get_simulation_result, get_shap_analysis, run_dr_simulation, get_top_regions, generate_report_from_conversation]
                     )
                     
                     # Setup chat conversation with context history
@@ -741,6 +776,9 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                                         n = int(args.get("n", 10))
                                         metric = args.get("metric", "전력_부하지수")
                                         sim_res = get_top_regions(n, metric)
+                                    elif name == "generate_report_from_conversation":
+                                        region = args.get("region", "")
+                                        sim_res = generate_report_from_conversation(region)
                                     else:
                                         sim_res = "알 수 없는 함수 호출입니다."
                                         
@@ -814,7 +852,7 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                             "type": "function",
                             "function": {
                                 "name": "get_top_regions",
-                                "description": "수도권 내에서 전력 부하지수 또는 인프라 부하지수가 가장 높은 상위 N개 지역의 상세 통계 테이블을 조회합니다.",
+                                "description": "지정된 수도권 내에서 전력 부하지수 또는 인프라 부하지수가 가장 높은 상위 N개 지역의 상세 통계 테이블을 조회합니다.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
@@ -822,6 +860,20 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                                         "metric": {"type": "string", "description": "정렬 기준이 되는 지표 ('전력_부하지수' 또는 '인프라_부하지수')"}
                                     },
                                     "required": []
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "generate_report_from_conversation",
+                                "description": "사용자가 특정 행정구역 분석 보고서 출력을 원할 때 호출되어, 해당 지역의 상세 통계, 예측 부하지수 및 정책 제안이 포함된 맞춤형 PDF 보고서를 생성하고 다운로드 링크를 준비합니다.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "region": {"type": "string", "description": "보고서를 발간할 행정구역명 (예: '안양시', '부천시' 등)"}
+                                    },
+                                    "required": ["region"]
                                 }
                             }
                         }
@@ -881,6 +933,9 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                                     n = int(args.get("n", 10))
                                     metric = args.get("metric", "전력_부하지수")
                                     sim_res = get_top_regions(n, metric)
+                                elif name == "generate_report_from_conversation":
+                                    region = args.get("region", "")
+                                    sim_res = generate_report_from_conversation(region)
                                 else:
                                     sim_res = "알 수 없는 함수 호출입니다."
                                     
@@ -921,9 +976,8 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 else:
                     st.error(f"⚠️ **{current_provider} 호출 중 오류가 발생했습니다:** {clean_err}")
                 
-        # Rerun to clear suggestion button trigger state cleanly
-        if clicked_prompt:
-            st.rerun()
+        # Always rerun after prompt execution to update chat display and render download buttons
+        st.rerun()
 
     # Render interactive Plotly SHAP chart if data exists in session state
     if st.session_state.get("last_shap_chart"):

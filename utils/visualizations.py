@@ -5,11 +5,42 @@ import streamlit as st
 import streamlit.components.v1 as components
 from scipy import stats
 
-def make_bubble_map(df, metric, selected_usages, selected_region=None, scenario=None):
+def make_bubble_map(df, metric, selected_usages, selected_region=None, scenario=None, topsis_data=None, anomalies=None):
     map_df = df[df["용도"].isin(selected_usages)].dropna(subset=["위도", "경도"]).copy()
     center = [37.55, 126.99] if map_df.empty else [map_df["위도"].mean(), map_df["경도"].mean()]
     m = folium.Map(location=center, zoom_start=9, tiles="CartoDB positron")
     colors = {"자가용": "#00A699", "사업자용": "#FF5A5F"}
+    
+    # 1. Add Pulse Marker CSS to header if anomalies are present
+    if anomalies is not None and len(anomalies) > 0:
+        pulse_css = """
+        <style>
+        @keyframes pulse-anim {
+            0% {
+                transform: scale(0.8);
+                box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.7);
+            }
+            70% {
+                transform: scale(1.2);
+                box-shadow: 0 0 0 10px rgba(255, 75, 75, 0);
+            }
+            100% {
+                transform: scale(0.8);
+                box-shadow: 0 0 0 0 rgba(255, 75, 75, 0);
+            }
+        }
+        .pulse-marker-warning {
+            background-color: #FF4B4B;
+            border-radius: 50%;
+            height: 16px;
+            width: 16px;
+            animation: pulse-anim 1.5s infinite;
+            border: 2px solid white;
+        }
+        </style>
+        """
+        m.get_root().header.add_child(folium.Element(pulse_css))
+
     max_value = max(float(map_df[metric].max()), 1.0) if not map_df.empty else 1.0
 
     for usage in selected_usages:
@@ -37,6 +68,49 @@ def make_bubble_map(df, metric, selected_usages, selected_region=None, scenario=
             ).add_to(layer)
         layer.add_to(m)
 
+    # 2. Render TOPSIS Top 5 Gold Star Markers
+    if topsis_data is not None and not topsis_data.empty:
+        topsis_layer = folium.FeatureGroup(name="🎯 최적 추천 입지 (MCDA)", show=True)
+        for _, row in topsis_data.iterrows():
+            tooltip = (
+                f"<b>🎯 [최적 입지 추천] {row['지역']} ({row['용도']})</b><br>"
+                f"TOPSIS 순위: <b>{int(row['TOPSIS_순위'])}위</b><br>"
+                f"TOPSIS 점수: {row['TOPSIS_점수']:.4f}<br>"
+                f"인프라 부하: {row['인프라_부하지수']:.2f}<br>"
+                f"전력 부하: {row['전력_부하지수']:.2f}"
+            )
+            folium.Marker(
+                location=[row["위도"], row["경도"]],
+                tooltip=tooltip,
+                icon=folium.Icon(color="orange", icon="star", prefix="fa"),
+            ).add_to(topsis_layer)
+        topsis_layer.add_to(m)
+
+    # 3. Render Anomaly Detection Pulse Markers
+    if anomalies is not None:
+        anomaly_layer = folium.FeatureGroup(name="🚨 이상 징후 관제 (Anomaly)", show=True)
+        items = anomalies.to_dict(orient="records") if isinstance(anomalies, pd.DataFrame) else anomalies
+        for item in items:
+            tooltip = (
+                f"<b>🚨 [이상 징후 포착] {item['지역']} ({item['용도']})</b><br>"
+                f"상태: <span style='color:red; font-weight:bold;'>위험 (Warning)</span><br>"
+                f"이상 유형: {item.get('anomaly_type', '기기 이상')}<br>"
+                f"커넥터 온도: {item.get('temperature', 0.0):.1f}°C<br>"
+                f"전압 변동성: {item.get('voltage_std', 0.0):.2f} V<br>"
+                f"패킷 손실률: {item.get('packet_loss', 0.0):.1f}%"
+            )
+            folium.Marker(
+                location=[item["위도"], item["경도"]],
+                tooltip=tooltip,
+                icon=folium.DivIcon(
+                    icon_size=(16, 16),
+                    icon_anchor=(8, 8),
+                    html='<div class="pulse-marker-warning"></div>'
+                )
+            ).add_to(anomaly_layer)
+        anomaly_layer.add_to(m)
+
+    # 4. Scenario intervention marker
     if selected_region and scenario:
         target = map_df[map_df["지역"] == selected_region].head(1)
         if not target.empty:
