@@ -186,9 +186,9 @@ def generate_report_pdf(best_name, test_rmse, top3_list, top_features, feature_i
     if final_data is not None and not final_data.empty:
         total_sales_kwh = final_data["총_전력판매량"].sum()
         co2_reduction_tons = calculate_carbon_offset(total_sales_kwh, peak_shift_rate=0.125)
-        env_text = f"피크 부하 12.5% 분산 시 화력발전 피크 가동 억제를 통해 연간 약 <b>{co2_reduction_tons:,.1f} 톤</b>의 온실가스($CO_2$) 저감 효과가 실시간 계측되었습니다."
+        env_text = f"피크 부하 12.5% 분산 시 화력발전 피크 가동 억제를 통해 연간 약 <b>{co2_reduction_tons:,.1f} 톤</b>의 온실가스(CO2) 저감 효과가 실시간 계측되었습니다."
     else:
-        env_text = "피크 발전기 가동 차단을 통해 대규모의 연간 온실가스($CO_2$) 감축 편익이 예상됩니다."
+        env_text = "피크 발전기 가동 차단을 통해 대규모의 연간 온실가스(CO2) 감축 편익이 예상됩니다."
 
     html_page3_env = f"""
     <p style="line-height: 1.6;"><b>□ 전기차 전환에 따른 탄소 배출 저감 및 환경적 편익 (동적 분석)</b></p>
@@ -344,7 +344,7 @@ def generate_report_pdf(best_name, test_rmse, top3_list, top_features, feature_i
     html_page6_conclusion = f"""
     <p style="line-height: 1.6;"><b>□ 핵심 영향 변수에 대한 기술적 제언 (스마트 로드 밸런싱)</b></p>
     <ul style="line-height: 1.6;">
-        <li>SHAP 1위 변수인 충전기당 평균 용량(`avg_capacity_per_charger`)은 특정 거점의 초급속 인프라 팽창이 전력망에 유발하는 집중 부담을 시사합니다. 이를 완화하기 위해 차량의 충전 상태(SoC)에 따라 실시간으로 전력을 분배하는 **스마트 로드 밸런싱(Smart Load Balancing)** 기능 탑재 의무화 조례 개정을 강구합니다.</li>
+        <li>SHAP 1위 변수인 충전기당 평균 용량(<b>avg_capacity_per_charger</b>)은 특정 거점의 초급속 인프라 팽창이 전력망에 유발하는 집중 부담을 시사합니다. 이를 완화하기 위해 차량의 충전 상태(SoC)에 따라 실시간으로 전력을 분배하는 <b>스마트 로드 밸런싱(Smart Load Balancing)</b> 기능 탑재 의무화 조례 개정을 강구합니다.</li>
     </ul>
     <br>
     <p style="line-height: 1.6;"><b>□ 분석의 한계점 및 향후 고도화 계획</b></p>
@@ -355,7 +355,7 @@ def generate_report_pdf(best_name, test_rmse, top3_list, top_features, feature_i
     <br>
     <p style="line-height: 1.6;"><b>□ 최종 의사결정 촉구 (Call to Action)</b></p>
     <ul style="line-height: 1.6;">
-        <li>전기차 충전 인프라 정책은 이제 '얼마나 많이 까는가(Quantity)'의 문제를 넘어 **'어디에, 어떤 용량으로 스마트하게 까는가(Quality & Grid-friendly)'**의 영역으로 진입했음. 본 보고서에서 도출된 수도권 고위험 지역 데이터와 예측 모델링 결과를 차년도 지자체 인프라 구축 예산 편성 및 조례 개정에 즉각 반영할 것을 강력히 권고함.</li>
+        <li>전기차 충전 인프라 정책은 이제 '얼마나 많이 까는가(Quantity)'의 문제를 넘어 <b>'어디에, 어떤 용량으로 스마트하게 까는가(Quality & Grid-friendly)'</b>의 영역으로 진입했음. 본 보고서에서 도출된 수도권 고위험 지역 데이터와 예측 모델링 결과를 차년도 지자체 인프라 구축 예산 편성 및 조례 개정에 즉각 반영할 것을 강력히 권고함.</li>
     </ul>
     """
     pdf.write_html(html_page6_conclusion)
