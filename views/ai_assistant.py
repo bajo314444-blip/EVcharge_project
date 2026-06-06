@@ -274,6 +274,53 @@ def get_top_regions(n: int = 10, metric: str = "전력_부하지수") -> str:
     gc.collect()
     return "\n".join(lines)
 
+def call_openai_compatible_api(provider: str, api_key: str, messages: list, tools: list = None) -> tuple:
+    """
+    Groq 또는 OpenRouter의 OpenAI 호환 API를 호출합니다.
+    Returns:
+        (assistant_message_content, tool_calls_list)
+    """
+    import requests
+    import json
+    
+    if provider == "Groq (Llama 3)":
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        model = "llama-3.1-70b-versatile"
+    else: # OpenRouter
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        model = "meta-llama/llama-3.1-8b-instruct:free"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    # OpenRouter requires extra headers
+    if provider != "Groq (Llama 3)":
+        headers["HTTP-Referer"] = "https://github.com/pillar-dv/EVcharge_project"
+        headers["X-Title"] = "EV-Charge AI Assistant"
+
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": 0.3
+    }
+    
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto"
+        
+    res = requests.post(url, headers=headers, json=payload, timeout=30)
+    res.raise_for_status()
+    res_json = res.json()
+    
+    choice = res_json["choices"][0]
+    message = choice["message"]
+    content = message.get("content") or ""
+    tool_calls = message.get("tool_calls") or []
+    
+    return content, tool_calls
+
 def get_gemini_client():
     # 1. Check secrets first
     api_key = st.secrets.get("GEMINI_API_KEY")
@@ -437,22 +484,106 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
         </div>
     """, unsafe_allow_html=True)
 
-    # API Client verification
-    model = get_gemini_client()
+    # API configuration and keys retrieval
+    current_provider = st.session_state.get("ai_provider", "Gemini (Google)")
     
-    if not model:
-        st.warning("⚠️ **Gemini API 키가 등록되지 않았습니다.**")
-        st.info("Streamlit Secrets에 `GEMINI_API_KEY`를 등록하시거나, 아래 사이드바 하단에서 API 키를 임시 입력해 주세요.")
-        
-        # Render dynamic API Key input inside sidebar as a fallback
-        with st.sidebar:
-            st.markdown("---")
-            st.subheader("🔑 API 설정 (Fallback)")
-            user_key = st.text_input("Gemini API Key 입력", type="password", key="user_gemini_key_input")
-            if user_key:
-                st.session_state["user_gemini_api_key"] = user_key
+    # Check if we have key for the active provider
+    active_key = None
+    if current_provider == "Gemini (Google)":
+        active_key = st.secrets.get("GEMINI_API_KEY") or st.session_state.get("user_gemini_api_key")
+    elif current_provider == "Groq (Llama 3)":
+        active_key = st.session_state.get("user_groq_api_key")
+    else: # OpenRouter
+        active_key = st.session_state.get("user_openrouter_api_key")
+
+    # Expand settings UI
+    with st.expander("⚙️ AI 관제비서 API 및 엔진 설정", expanded=not active_key):
+        provider_col, key_col = st.columns([1, 2])
+        with provider_col:
+            selected_prov = st.selectbox(
+                "AI 서비스 제공자",
+                ["Gemini (Google)", "Groq (Llama 3)", "OpenRouter (무료 모델)"],
+                index=["Gemini (Google)", "Groq (Llama 3)", "OpenRouter (무료 모델)"].index(current_provider),
+                key="ai_provider_input"
+            )
+            if selected_prov != current_provider:
+                st.session_state["ai_provider"] = selected_prov
                 st.rerun()
+                
+        with key_col:
+            if selected_prov == "Gemini (Google)":
+                gemini_key = st.text_input(
+                    "Gemini API Key 입력",
+                    type="password",
+                    value=st.secrets.get("GEMINI_API_KEY") or st.session_state.get("user_gemini_api_key", ""),
+                    key="user_gemini_key_input_new"
+                )
+                if gemini_key and gemini_key != st.session_state.get("user_gemini_api_key"):
+                    st.session_state["user_gemini_api_key"] = gemini_key
+                    st.rerun()
+            elif selected_prov == "Groq (Llama 3)":
+                groq_key = st.text_input(
+                    "Groq API Key 입력",
+                    type="password",
+                    value=st.session_state.get("user_groq_api_key", ""),
+                    key="user_groq_key_input_new"
+                )
+                if groq_key and groq_key != st.session_state.get("user_groq_api_key"):
+                    st.session_state["user_groq_api_key"] = groq_key
+                    st.rerun()
+            else:
+                openrouter_key = st.text_input(
+                    "OpenRouter API Key 입력",
+                    type="password",
+                    value=st.session_state.get("user_openrouter_api_key", ""),
+                    key="user_openrouter_key_input_new"
+                )
+                if openrouter_key and openrouter_key != st.session_state.get("user_openrouter_api_key"):
+                    st.session_state["user_openrouter_api_key"] = openrouter_key
+                    st.rerun()
+                    
+    if not active_key:
+        st.warning(f"⚠️ **{current_provider} API 키가 등록되지 않았습니다.**")
+        st.info("시작하려면 위의 'AI 관제비서 API 및 엔진 설정' 창을 열고 API 키를 입력해 주세요.")
         return
+        
+    # Configure Gemini only if chosen
+    if current_provider == "Gemini (Google)":
+        try:
+            genai.configure(api_key=active_key)
+            # Programmatically discover available models for the given API key
+            available_model_names = []
+            try:
+                for m in genai.list_models():
+                    if hasattr(m, 'supported_generation_methods') and "generateContent" in m.supported_generation_methods:
+                        available_model_names.append(m.name)
+            except Exception:
+                pass
+                
+            candidate_models = [
+                "gemini-1.5-flash",
+                "gemini-1.5-flash-latest",
+                "gemini-1.5-pro",
+                "gemini-1.0-pro",
+            ]
+            
+            selected_model_name = None
+            for candidate in candidate_models:
+                full_candidate = candidate if candidate.startswith("models/") else f"models/{candidate}"
+                if full_candidate in available_model_names:
+                    selected_model_name = candidate
+                    break
+                    
+            if not selected_model_name:
+                if available_model_names:
+                    selected_model_name = available_model_names[0].replace("models/", "")
+                else:
+                    selected_model_name = "gemini-1.5-flash"
+                    
+            st.session_state["gemini_selected_model"] = selected_model_name
+        except Exception as e:
+            st.error(f"Gemini API 설정 중 오류가 발생했습니다: {e}")
+            return
 
     # Info cards for quick overview
     col1, col2, col3 = st.columns(3)
@@ -556,37 +687,178 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
             message_placeholder = st.empty()
             
             try:
-                # Initialize Gemini Model with programmatically selected model name
-                selected_model_name = st.session_state.get("gemini_selected_model", "gemini-1.5-flash")
-                chat_model = genai.GenerativeModel(
-                    model_name=selected_model_name,
-                    system_instruction=system_instruction,
-                    tools=[get_simulation_result, get_shap_analysis, run_dr_simulation, get_top_regions]
-                )
-                
-                # Setup chat conversation with context history
-                formatted_history = []
-                for msg in st.session_state.messages[:-1]: # Exclude the current prompt
-                    gemini_role = "user" if msg["role"] == "user" else "model"
-                    formatted_history.append({
-                        "role": gemini_role,
-                        "parts": [msg["content"]]
-                    })
-                
-                chat = chat_model.start_chat(history=formatted_history)
-                
-                # Fetch response
-                with st.spinner("AI 분석가가 데이터를 분석 중입니다..."):
-                    response = chat.send_message(prompt)
+                if current_provider == "Gemini (Google)":
+                    # Initialize Gemini Model with programmatically selected model name
+                    selected_model_name = st.session_state.get("gemini_selected_model", "gemini-1.5-flash")
+                    chat_model = genai.GenerativeModel(
+                        model_name=selected_model_name,
+                        system_instruction=system_instruction,
+                        tools=[get_simulation_result, get_shap_analysis, run_dr_simulation, get_top_regions]
+                    )
                     
-                    # Function Calling loop to handle simulation requests
-                    if response.candidates and response.candidates[0].content.parts:
-                        parts = response.candidates[0].content.parts
-                        for part in parts:
-                            if hasattr(part, "function_call") and part.function_call:
-                                name = part.function_call.name
-                                args = part.function_call.args
+                    # Setup chat conversation with context history
+                    formatted_history = []
+                    for msg in st.session_state.messages[:-1]: # Exclude the current prompt
+                        gemini_role = "user" if msg["role"] == "user" else "model"
+                        formatted_history.append({
+                            "role": gemini_role,
+                            "parts": [msg["content"]]
+                        })
+                    
+                    chat = chat_model.start_chat(history=formatted_history)
+                    
+                    # Fetch response
+                    with st.spinner("AI 분석가가 데이터를 분석 중입니다..."):
+                        response = chat.send_message(prompt)
+                        
+                        # Function Calling loop to handle simulation requests
+                        if response.candidates and response.candidates[0].content.parts:
+                            parts = response.candidates[0].content.parts
+                            for part in parts:
+                                if hasattr(part, "function_call") and part.function_call:
+                                    name = part.function_call.name
+                                    args = part.function_call.args
+                                    
+                                    if name == "get_simulation_result":
+                                        region = args.get("region", "")
+                                        count = int(args.get("count", 10))
+                                        power_type = args.get("power_type", "급속")
+                                        sim_res = get_simulation_result(region, count, power_type)
+                                    elif name == "get_shap_analysis":
+                                        region = args.get("region", "")
+                                        sim_res = get_shap_analysis(region)
+                                    elif name == "run_dr_simulation":
+                                        region = args.get("region", "")
+                                        intervention_type = args.get("intervention_type", "V2G_Peak_Shaving")
+                                        sim_res = run_dr_simulation(region, intervention_type)
+                                    elif name == "get_top_regions":
+                                        n = int(args.get("n", 10))
+                                        metric = args.get("metric", "전력_부하지수")
+                                        sim_res = get_top_regions(n, metric)
+                                    else:
+                                        sim_res = "알 수 없는 함수 호출입니다."
+                                        
+                                    # Feedback loop to Gemini LLM with JSON payload fallback
+                                    try:
+                                        func_response_part = genai.types.Part.from_function_response(
+                                            name=name,
+                                            response={"result": sim_res}
+                                        )
+                                    except Exception:
+                                        func_response_part = {
+                                            "function_response": {
+                                                "name": name,
+                                                "response": {"result": sim_res}
+                                            }
+                                        }
+                                        
+                                    response = chat.send_message(func_response_part)
+                                    break
+                                        
+                        full_response = response.text
+                else:
+                    # OpenAI-compatible multi-provider logic (Groq / OpenRouter)
+                    openai_tools = [
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "get_simulation_result",
+                                "description": "지정된 수도권 행정구역에 특정 충전기 타입과 대수를 증설했을 때의 예측 전력 부하지수 감소량 및 전/후 비교 결과를 조회하거나 실시간 계산합니다.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "region": {"type": "string", "description": "분석할 행정구역명 (예: '안양시', '수원시 동안구' 등)"},
+                                        "count": {"type": "integer", "description": "설치할 충전기 대수 (예: 10)"},
+                                        "power_type": {"type": "string", "description": "충전기 타입 ('급속' 또는 '완속')"}
+                                    },
+                                    "required": ["region", "count"]
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "get_shap_analysis",
+                                "description": "지정된 수도권 행정구역의 부하 예측 결과에 대해 각 피처(인프라, 전기차수, 용량 등)가 미친 기여도(SHAP)를 분석합니다.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "region": {"type": "string", "description": "분석할 행정구역명 (예: '안양시' 등)"}
+                                    },
+                                    "required": ["region"]
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "run_dr_simulation",
+                                "description": "지정된 수도권 행정구역에 스마트 그리드 수요반응(DR) 또는 피크 컷 정책을 도입했을 때의 예측 전력 부하지수 완화율 및 과부하 지연 효과를 시뮬레이션합니다.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "region": {"type": "string", "description": "분석할 행정구역명 (예: '안양시' 등)"},
+                                        "intervention_type": {"type": "string", "description": "적용할 정책 개입 타입 ('V2G_Peak_Shaving' 또는 'Smart_Charging_50')"}
+                                    },
+                                    "required": ["region"]
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "get_top_regions",
+                                "description": "수도권 내에서 전력 부하지수 또는 인프라 부하지수가 가장 높은 상위 N개 지역의 상세 통계 테이블을 조회합니다.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "n": {"type": "integer", "description": "조회할 상위 지역 개수 (예: 10)"},
+                                        "metric": {"type": "string", "description": "정렬 기준이 되는 지표 ('전력_부하지수' 또는 '인프라_부하지수')"}
+                                    },
+                                    "required": []
+                                }
+                            }
+                        }
+                    ]
+
+                    # Setup messages list for OpenAI format
+                    openai_messages = [
+                        {"role": "system", "content": system_instruction}
+                    ]
+                    # Append history
+                    for msg in st.session_state.messages[:-1]:
+                        openai_role = "user" if msg["role"] == "user" else "assistant"
+                        openai_messages.append({
+                            "role": openai_role,
+                            "content": msg["content"]
+                        })
+                    # Add current user prompt
+                    openai_messages.append({
+                        "role": "user",
+                        "content": prompt
+                    })
+
+                    with st.spinner("AI 분석가가 데이터를 분석 중입니다..."):
+                        content, tool_calls = call_openai_compatible_api(
+                            current_provider, active_key, openai_messages, openai_tools
+                        )
+                        
+                        if tool_calls:
+                            # Add assistant's message with tool call to context
+                            openai_messages.append({
+                                "role": "assistant",
+                                "content": content,
+                                "tool_calls": tool_calls
+                            })
+                            
+                            # Process each tool call
+                            for tool_call in tool_calls:
+                                tc_id = tool_call.get("id")
+                                func_info = tool_call.get("function")
+                                name = func_info.get("name")
+                                args = json.loads(func_info.get("arguments", "{}"))
                                 
+                                # Execute python function
                                 if name == "get_simulation_result":
                                     region = args.get("region", "")
                                     count = int(args.get("count", 10))
@@ -606,24 +878,20 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                                 else:
                                     sim_res = "알 수 없는 함수 호출입니다."
                                     
-                                # Feedback loop to Gemini LLM with JSON payload fallback
-                                try:
-                                    func_response_part = genai.types.Part.from_function_response(
-                                        name=name,
-                                        response={"result": sim_res}
-                                    )
-                                except Exception:
-                                    func_response_part = {
-                                        "function_response": {
-                                            "name": name,
-                                            "response": {"result": sim_res}
-                                        }
-                                    }
-                                    
-                                response = chat.send_message(func_response_part)
-                                break
-                                    
-                    full_response = response.text
+                                # Append tool response
+                                openai_messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tc_id,
+                                    "name": name,
+                                    "content": sim_res
+                                })
+                                
+                            # Second call to get final text response
+                            content, _ = call_openai_compatible_api(
+                                current_provider, active_key, openai_messages
+                            )
+                            
+                        full_response = content
                     
                 message_placeholder.markdown(full_response)
                 
