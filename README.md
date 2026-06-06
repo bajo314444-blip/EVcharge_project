@@ -46,6 +46,7 @@
  ┃ ┣ 📜 models.py              # ML/DL 모델 구조 및 고정 피처 매핑 구조 적용
  ┃ ┣ 📜 optimization.py        # [★V5.0 고도화] TOPSIS 알고리즘 및 가격 탄력성 수요 분산 엔진 탑재
  ┃ ┣ 📜 pdf_generator.py       # [★V5.0 고도화] FPDF 기반 지역별 맞춤 보고서 생성기 추가
+ ┃ ┣ 📜 stats_engine.py        # [★V5.0+ 신설] TOPSIS ROI 엔진 및 정책 지표 동적 연산 코어
  ┃ ┗ 📜 visualizations.py      # [★V5.0 고도화] 골드 스타 추천 마커 및 경고 Pulse 마커 적용
  ┣ 📂 views/                    # 대시보드 화면 및 라우팅 뷰
  ┃ ┣ 📜 ai_assistant.py        # [★V5.0 고도화] AI 비서 PDF 발간 툴 바인딩 및 다운로드 버튼 동적 연동

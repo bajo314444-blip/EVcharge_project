@@ -148,6 +148,48 @@ def test_pdf_report_generation():
     
     print(" -> PDF report generation test: SUCCESS!")
 
+def test_stats_engine_computations():
+    print("[4/4] Testing Stats Engine Computations...")
+    from utils.stats_engine import (
+        calculate_carbon_offset,
+        calculate_fiscal_roi_metrics,
+        calculate_solar_absorption_kwh,
+        calculate_avg_capacity_per_charger
+    )
+    
+    mock_final = pd.DataFrame({
+        "지역": ["경기 안양시", "경기 부천시", "경기 안성시"],
+        "용도": ["자가용", "사업자용", "사업자용"],
+        "전기차_전체대수": [1000.0, 800.0, 500.0],
+        "전력_부하지수": [95.0, 140.0, 85.0],
+        "인프라_부하지수": [85.0, 42.0, 10.0],
+        "급속충전기_대수": [20.0, 15.0, 10.0],
+        "완속충전기_대수": [40.0, 30.0, 20.0],
+        "전체_충전기대수": [60.0, 45.0, 30.0],
+        "총용량_kW": [2000.0, 1500.0, 1000.0],
+        "총_전력판매량": [80000.0, 120000.0, 60000.0],
+        "총_판매수입": [200000.0, 300000.0, 150000.0]
+    })
+    
+    # 1. Carbon Offset
+    offset = calculate_carbon_offset(100000.0)
+    assert offset > 0, "Carbon offset must be positive"
+    
+    # 2. Fiscal ROI
+    roi_mul, budget_saving = calculate_fiscal_roi_metrics(mock_final)
+    assert roi_mul > 0, "ROI multiplier must be positive"
+    assert 15.0 <= budget_saving <= 45.0, "Budget saving rate must be bounded"
+    
+    # 3. Solar Absorption
+    solar = calculate_solar_absorption_kwh(100000.0)
+    assert solar == 8000.0, "Solar absorption should be 8% of sales"
+    
+    # 4. Avg Capacity
+    avg_cap = calculate_avg_capacity_per_charger(mock_final)
+    assert np.isclose(avg_cap, 4500.0 / 135.0), "Avg capacity calculation incorrect"
+    
+    print(" -> Stats Engine calculations test: SUCCESS!")
+
 if __name__ == "__main__":
     print("==================================================")
     print("RUNNING V4.8 PREMIUM FEATURES UNIT TESTS...")
@@ -157,6 +199,7 @@ if __name__ == "__main__":
         test_topsis_mcda()
         test_dynamic_pricing_simulation()
         test_pdf_report_generation()
+        test_stats_engine_computations()
         print("\n -> ALL TESTS PASSED SUCCESSFULLY!")
         sys.exit(0)
     except AssertionError as ae:
