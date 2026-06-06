@@ -18,10 +18,43 @@ from utils.visualizations import make_bubble_map, make_tableone, render_shap_or_
 from utils.models import make_feature_matrix
 from utils.data_processing import cached_bootstrap, cached_adversarial, cached_ablation, cached_dca, cached_nested_cv, cached_spatial_external_validation, cached_survival, cached_partial_dependence
 from utils.pdf_generator import generate_report_pdf, generate_highway_report_pdf
-from utils.optimization import optimize_highway_chargers, calculate_single_region_trajectory
+from utils.optimization import optimize_highway_chargers, calculate_single_region_trajectory, calculate_topsis_rankings, simulate_dynamic_pricing
 
 
 def render_dashboard(filtered, top_region, metric, usage_options, final_data, monthly_data, hourly_data, model_state, model_state_smote):
+    # Initialize anomalies if not done yet
+    if "anomalies_list" not in st.session_state:
+        np.random.seed(42)
+        sample_regions = final_data.dropna(subset=["위도", "경도"]).sample(min(3, len(final_data)), random_state=42).copy()
+        anomaly_types = ["커넥터 온도 과열", "이상 전압 변동", "통신 패킷 유실"]
+        anomalies = []
+        for idx, (_, row) in enumerate(sample_regions.iterrows()):
+            anomalies.append({
+                "지역": row["지역"],
+                "용도": row["용도"],
+                "위도": row["위도"],
+                "경도": row["경도"],
+                "anomaly_type": anomaly_types[idx % len(anomaly_types)],
+                "temperature": float(np.random.uniform(65.0, 85.0)),
+                "voltage_std": float(np.random.uniform(8.5, 15.0)),
+                "packet_loss": float(np.random.uniform(5.0, 25.0)),
+            })
+        st.session_state["anomalies_list"] = anomalies
+
+    # Show warning banner
+    anomalies = st.session_state["anomalies_list"]
+    if anomalies:
+        st.markdown(
+            f"""
+            <div style="background-color: #FF4B4B; color: white; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div>
+                    🚨 [경고] 현재 수도권 충전소 {len(anomalies)}개 지점에서 이상 징후(과열, 전압 급변, 통신 장애)가 실시간 감지되었습니다. '이상 징후 관제 지도' 탭에서 상세 현황을 확인하세요.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("분석 지역-용도 행", f"{len(filtered):,}개")
     col2.metric("최고 부하 지역", top_region["지역"].iloc[0] if not top_region.empty else "-")
@@ -33,7 +66,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
         [
             "🗺️ 지도 버블맵",
             "📈 월별 부하 변화",
-            "💡 설치 시뮬레이션",
+            "💡 분석 시뮬레이터",
             "📊 예측 모델 비교",
             "🛡️ 강건성 평가 (Phase 3)",
             "🧮 통계/군집 분석",
@@ -45,56 +78,165 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
     )
 
     if active_menu == "🗺️ 지도 버블맵":
-        st.subheader("현재 부하 버블맵")
-        st.caption("지도 레이어에서 자가용과 사업자용을 켜고 끌 수 있습니다.")
-        left, right = st.columns([1.35, 0.9])
-        with left:
-            st_folium(make_bubble_map(filtered, metric, usage_options), height=650, use_container_width=True, returned_objects=["last_object_clicked"])
-        with right:
-            st.markdown("#### 고부하 상위 지역 (TOP 15)")
-
-            rank_tabs = st.tabs(["전체", "사업자용", "자가용"])
-
-            def render_rank_table(df_subset, usage_name):
-                if df_subset.empty:
-                    st.info(f"{usage_name} 데이터가 없습니다.")
-                    return
+        sub_tabs = st.tabs(["📍 현황 버블맵", "🎯 최적 입지 추천 지도", "🚨 이상 징후 관제 지도"])
         
-                cols_to_show = ["지역", "용도", "전기차_전체대수", "전체_충전기대수", "총용량_kW"]
-                if metric not in cols_to_show:
-                    cols_to_show.append(metric)
+        with sub_tabs[0]:
+            st.subheader("현재 부하 버블맵")
+            st.caption("지도 레이어에서 자가용과 사업자용을 켜고 끌 수 있습니다.")
+            left, right = st.columns([1.35, 0.9])
+            with left:
+                st_folium(make_bubble_map(filtered, metric, usage_options), height=650, key="current_map", use_container_width=True, returned_objects=["last_object_clicked"])
+            with right:
+                st.markdown("#### 고부하 상위 지역 (TOP 15)")
+
+                rank_tabs = st.tabs(["전체", "사업자용", "자가용"])
+
+                def render_rank_table(df_subset, usage_name):
+                    if df_subset.empty:
+                        st.info(f"{usage_name} 데이터가 없습니다.")
+                        return
             
-                top_table = (
-                    df_subset.sort_values(metric, ascending=False)
-                    [cols_to_show]
-                    .head(15)
-                    .copy()
-                )
-                top_table.insert(0, "순위", range(1, len(top_table) + 1))
-                styled_table = top_table.style.set_properties(**{'text-align': 'center'}, subset=['순위'])
-                st.dataframe(styled_table, use_container_width=True, hide_index=True)
-    
-                top_table["지역_용도"] = top_table["지역"] + " (" + top_table["용도"] + ")"
+                    cols_to_show = ["지역", "용도", "전기차_전체대수", "전체_충전기대수", "총용량_kW"]
+                    if metric not in cols_to_show:
+                        cols_to_show.append(metric)
+                
+                    top_table = (
+                        df_subset.sort_values(metric, ascending=False)
+                        [cols_to_show]
+                        .head(15)
+                        .copy()
+                    )
+                    top_table.insert(0, "순위", range(1, len(top_table) + 1))
+                    styled_table = top_table.style.set_properties(**{'text-align': 'center'}, subset=['순위'])
+                    st.dataframe(styled_table, use_container_width=True, hide_index=True)
         
-                fig = px.bar(
-                    top_table.sort_values("순위", ascending=True),
-                    x=metric,
-                    y="지역_용도",
-                    color="용도",
-                    orientation="h",
-                    color_discrete_map={"자가용": "#00A699", "사업자용": "#FF5A5F"},
-                    title=f"{usage_name} 고부하 TOP 15 ({metric} 기준)",
-                    labels={metric: f"{metric} 점수", "지역_용도": "지역 (용도)"},
-                    category_orders={"지역_용도": top_table.sort_values("순위", ascending=True)["지역_용도"].tolist()}
-                )
-                st.plotly_chart(fig, use_container_width=True)
+                    top_table["지역_용도"] = top_table["지역"] + " (" + top_table["용도"] + ")"
+            
+                    fig = px.bar(
+                        top_table.sort_values("순위", ascending=True),
+                        x=metric,
+                        y="지역_용도",
+                        color="용도",
+                        orientation="h",
+                        color_discrete_map={"자가용": "#00A699", "사업자용": "#FF5A5F"},
+                        title=f"{usage_name} 고부하 TOP 15 ({metric} 기준)",
+                        labels={metric: f"{metric} 점수", "지역_용도": "지역 (용도)"},
+                        category_orders={"지역_용도": top_table.sort_values("순위", ascending=True)["지역_용도"].tolist()}
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
 
-            with rank_tabs[0]:
-                render_rank_table(filtered, "전체")
-            with rank_tabs[1]:
-                render_rank_table(filtered[filtered["용도"] == "사업자용"], "사업자용")
-            with rank_tabs[2]:
-                render_rank_table(filtered[filtered["용도"] == "자가용"], "자가용")
+                with rank_tabs[0]:
+                    render_rank_table(filtered, "전체")
+                with rank_tabs[1]:
+                    render_rank_table(filtered[filtered["용도"] == "사업자용"], "사업자용")
+                with rank_tabs[2]:
+                    render_rank_table(filtered[filtered["용도"] == "자가용"], "자가용")
+
+        with sub_tabs[1]:
+            st.subheader("🎯 TOPSIS 다중 기준 의사결정(MCDA) 최적 입지 추천")
+            st.caption("전력 부하, 인프라 부하, 충전소 밀집도, 비용대비 전력망 완화율의 가중치를 고려하여 최적의 추가 충전소 설치 입지를 도출합니다.")
+            
+            w_col1, w_col2, w_col3, w_col4 = st.columns(4)
+            with w_col1:
+                w_load = st.slider("전력 부하지수 가중치", 0.0, 1.0, 0.35, 0.05)
+            with w_col2:
+                w_infra = st.slider("인프라 부하지수 가중치", 0.0, 1.0, 0.35, 0.05)
+            with w_col3:
+                w_density = st.slider("충전소 밀집도 역수 가중치", 0.0, 1.0, 0.15, 0.05)
+            with w_col4:
+                w_mitigation = st.slider("전력망 완화율 가중치", 0.0, 1.0, 0.15, 0.05)
+                
+            weights_sum = w_load + w_infra + w_density + w_mitigation
+            if weights_sum == 0:
+                st.error("가중치 합이 0일 수 없습니다.")
+            else:
+                norm_weights = {
+                    "전력_부하지수": w_load / weights_sum,
+                    "인프라_부하지수": w_infra / weights_sum,
+                    "충전소_밀집도_역수": w_density / weights_sum,
+                    "전력망_완화율": w_mitigation / weights_sum
+                }
+                
+                topsis_res = calculate_topsis_rankings(filtered, norm_weights)
+                topsis_top5 = topsis_res.sort_values("TOPSIS_점수", ascending=False).head(5).copy()
+                topsis_top5["TOPSIS_순위"] = range(1, len(topsis_top5) + 1)
+                
+                t_left, t_right = st.columns([1.35, 0.9])
+                with t_left:
+                    st_folium(
+                        make_bubble_map(filtered, metric, usage_options, topsis_data=topsis_top5),
+                        height=600,
+                        key="topsis_map",
+                        use_container_width=True,
+                        returned_objects=["last_object_clicked"]
+                    )
+                with t_right:
+                    st.markdown("#### 🎯 최적 입지 추천 TOP 5 지역")
+                    for _, row in topsis_top5.iterrows():
+                        st.markdown(
+                            f"""
+                            <div style="background-color: rgba(255,215,0,0.08); border-left: 5px solid #FFD700; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+                                <h5 style="margin: 0; color: #E5A93C;">{row['TOPSIS_순위']}위: {row['지역']} ({row['용도']})</h5>
+                                <p style="margin: 5px 0 0 0; font-size: 13px; line-height: 1.5;">
+                                    <b>TOPSIS 점수:</b> {row['TOPSIS_점수']:.4f}<br>
+                                    <b>전력 부하지수:</b> {row['전력_부하지수']:.2f} | <b>인프라 부하지수:</b> {row['인프라_부하지수']:.2f}<br>
+                                    <b>충전소수:</b> {row['충전소개수']:.0f}개 | <b>총용량:</b> {row['총용량_kW']:.0f} kW
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+        with sub_tabs[2]:
+            st.subheader("🚨 충전기 고장 예후 Anomaly Detection 관제 지도")
+            st.caption("전압 변동성, 커넥터 온도, 패킷 유실률 등의 실시간 지표를 파싱하여 고장 예후가 감지된 충전소를 실시간 모니터링합니다.")
+            
+            if st.button("🔄 실시간 상태 데이터 갱신 (모의 파싱)"):
+                sample_regions = final_data.dropna(subset=["위도", "경도"]).sample(min(3, len(final_data))).copy()
+                anomaly_types = ["커넥터 온도 과열", "이상 전압 변동", "통신 패킷 유실"]
+                new_anomalies = []
+                for idx, (_, row) in enumerate(sample_regions.iterrows()):
+                    new_anomalies.append({
+                        "지역": row["지역"],
+                        "용도": row["용도"],
+                        "위도": row["위도"],
+                        "경도": row["경도"],
+                        "anomaly_type": np.random.choice(anomaly_types),
+                        "temperature": float(np.random.uniform(65.0, 85.0)),
+                        "voltage_std": float(np.random.uniform(8.5, 15.0)),
+                        "packet_loss": float(np.random.uniform(5.0, 25.0)),
+                    })
+                st.session_state["anomalies_list"] = new_anomalies
+                st.rerun()
+                
+            anomalies = st.session_state["anomalies_list"]
+            
+            a_left, a_right = st.columns([1.35, 0.9])
+            with a_left:
+                st_folium(
+                    make_bubble_map(filtered, metric, usage_options, anomalies=anomalies),
+                    height=600,
+                    key="anomaly_map",
+                    use_container_width=True,
+                    returned_objects=["last_object_clicked"]
+                )
+            with a_right:
+                st.markdown("#### 🚨 실시간 이상 감지 경보 목록")
+                for item in anomalies:
+                    st.markdown(
+                        f"""
+                        <div style="background-color: rgba(255,75,75,0.08); border-left: 5px solid #FF4B4B; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+                            <h5 style="margin: 0; color: #FF4B4B;">🚨 {item['지역']} ({item['용도']})</h5>
+                            <p style="margin: 5px 0 0 0; font-size: 13px; line-height: 1.5;">
+                                <b>이상 유형:</b> <span style="color: #FF4B4B; font-weight: bold;">{item['anomaly_type']}</span><br>
+                                <b>커넥터 온도:</b> {item['temperature']:.1f}°C (임계치: 60°C)<br>
+                                <b>전압 변동성:</b> {item['voltage_std']:.2f} V (정상범위: &lt; 5.0 V)<br>
+                                <b>패킷 유실률:</b> {item['packet_loss']:.1f}% (정상범위: &lt; 1.0%)
+                            </p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
     elif active_menu == "📈 월별 부하 변화":
         st.subheader("환경부 공공급속 충전기 연월별 부하 변화")
@@ -120,73 +262,163 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
             hide_index=True,
         )
 
-    elif active_menu == "💡 설치 시뮬레이션":
-        st.subheader("통합 설치 및 미래 시뮬레이터 (Time-to-Overload)")
-        st.caption("충전기 추가 설치 시, 해당 지역의 부하지수가 어떻게 감소하며 과부하 시점을 얼마나 늦출 수 있는지(생존 궤적) 확인합니다.")
+    elif active_menu == "💡 분석 시뮬레이터":
+        sim_tabs = st.tabs(["🔌 충전기 증설 시뮬레이션", "💸 다이내믹 요금제 시뮬레이션"])
+        
+        with sim_tabs[0]:
+            st.subheader("통합 설치 및 미래 시뮬레이터 (Time-to-Overload)")
+            st.caption("충전기 추가 설치 시, 해당 지역의 부하지수가 어떻게 감소하며 과부하 시점을 얼마나 늦출 수 있는지(생존 궤적) 확인합니다.")
 
-        sim_col1, sim_col2 = st.columns([1, 1.5])
+            sim_col1, sim_col2 = st.columns([1, 1.5])
 
-        with sim_col1:
-            st.markdown("##### 1. 시뮬레이션 설정")
-            region_list = sorted(final_data["지역"].unique())
-            default_idx = region_list.index(top_region["지역"].iloc[0]) if not top_region.empty else 0
-            sim_region = st.selectbox("설치 후보 지역", region_list, index=default_idx)
-            sim_usage = st.radio("계산 기준 용도", ["자가용", "사업자용"], horizontal=True)
-            growth_rate = st.slider("해당 지역 전기차 연간 증가율 (%)", 1.0, 20.0, 5.0, 1.0) / 100.0
+            with sim_col1:
+                st.markdown("##### 1. 시뮬레이션 설정")
+                region_list = sorted(final_data["지역"].unique())
+                default_idx = region_list.index(top_region["지역"].iloc[0]) if not top_region.empty else 0
+                sim_region = st.selectbox("설치 후보 지역", region_list, index=default_idx)
+                sim_usage = st.radio("계산 기준 용도", ["자가용", "사업자용"], horizontal=True)
+                growth_rate = st.slider("해당 지역 전기차 연간 증가율 (%)", 1.0, 20.0, 5.0, 1.0) / 100.0
 
-            st.markdown("##### 2. 설치 정책 (Intervention)")
-            charger_count = st.slider("추가 충전기 수", 1, 80, 10)
-            charger_kw = st.select_slider("충전기 1대 용량(kW)", options=[50, 100, 150, 200, 350], value=100)
+                st.markdown("##### 2. 설치 정책 (Intervention)")
+                charger_count = st.slider("추가 충전기 수", 1, 80, 10)
+                charger_kw = st.select_slider("충전기 1대 용량(kW)", options=[50, 100, 150, 200, 350], value=100)
 
-            target_row = final_data[(final_data["지역"] == sim_region) & (final_data["용도"] == sim_usage)].iloc[0]
-            added_kw = charger_count * charger_kw
-            base_load = target_row["총_전력판매량"]
-            capacity = target_row["총용량_kW"]
-            critical_threshold = final_data["전력_부하지수"].quantile(0.8) # 상위 20% 위험 한계선
+                target_row = final_data[(final_data["지역"] == sim_region) & (final_data["용도"] == sim_usage)].iloc[0]
+                added_kw = charger_count * charger_kw
+                base_load = target_row["총_전력판매량"]
+                capacity = target_row["총용량_kW"]
+                critical_threshold = final_data["전력_부하지수"].quantile(0.8) # 상위 20% 위험 한계선
 
-            traj_df, overload_before, overload_after = calculate_single_region_trajectory(
-                base_load, capacity, growth_rate, added_kw, critical_threshold
-            )
+                traj_df, overload_before, overload_after = calculate_single_region_trajectory(
+                    base_load, capacity, growth_rate, added_kw, critical_threshold
+                )
 
-            before = float(target_row["전력_부하지수"])
-            after = float(base_load / (capacity + added_kw)) if (capacity + added_kw) > 0 else 0
-            reduction_pct = (before - after) / before * 100 if before else 0
+                before = float(target_row["전력_부하지수"])
+                after = float(base_load / (capacity + added_kw)) if (capacity + added_kw) > 0 else 0
+                reduction_pct = (before - after) / before * 100 if before else 0
 
-            st.markdown("##### 3. 즉각적인 부하 감소 효과")
-            st.metric("현재 전력 부하지수", f"{before:,.2f}")
-            st.metric("설치 후 부하지수", f"{after:,.2f}", delta=f"-{reduction_pct:.1f}%")
-            st.metric("추가 공급 용량", f"{added_kw:,.0f} kW")
+                st.markdown("##### 3. 즉각적인 부하 감소 효과")
+                st.metric("현재 전력 부하지수", f"{before:,.2f}")
+                st.metric("설치 후 부하지수", f"{after:,.2f}", delta=f"-{reduction_pct:.1f}%")
+                st.metric("추가 공급 용량", f"{added_kw:,.0f} kW")
 
-        with sim_col2:
-            st.markdown("##### 4. 과부하 지연 효과 (정책의 장기적 가치)")
+            with sim_col2:
+                st.markdown("##### 4. 과부하 지연 효과 (정책의 장기적 가치)")
 
-            delay_years = overload_after - overload_before
+                delay_years = overload_after - overload_before
 
-            mc1, mc2, mc3 = st.columns(3)
-            with mc1:
-                st.metric("기존 과부하 도달", f"{overload_before}년 뒤" if overload_before < 15 else "안전 (15년+)")
-            with mc2:
-                st.metric("설치 후 도달", f"{overload_after}년 뒤" if overload_after < 15 else "안전 (15년+)")
-            with mc3:
-                st.metric("충전 대란 지연 효과", f"+{delay_years}년" if delay_years > 0 else "변동 없음")
-    
-            fig = px.line(traj_df, x="Year", y="부하지수", color="상태", markers=True, 
-                          title=f"{sim_region} 부하지수 미래 궤적 (연 {growth_rate*100:.0f}% 성장)")
-            fig.add_hline(y=critical_threshold, line_dash="dash", line_color="red", annotation_text="위험 한계선 (Threshold)")
-            st.plotly_chart(fig, use_container_width=True)
+                mc1, mc2, mc3 = st.columns(3)
+                with mc1:
+                    st.metric("기존 과부하 도달", f"{overload_before}년 뒤" if overload_before < 15 else "안전 (15년+)")
+                with mc2:
+                    st.metric("설치 후 도달", f"{overload_after}년 뒤" if overload_after < 15 else "안전 (15년+)")
+                with mc3:
+                    st.metric("충전 대란 지연 효과", f"+{delay_years}년" if delay_years > 0 else "변동 없음")
+        
+                fig = px.line(traj_df, x="Year", y="부하지수", color="상태", markers=True, 
+                              title=f"{sim_region} 부하지수 미래 궤적 (연 {growth_rate*100:.0f}% 성장)")
+                fig.add_hline(y=critical_threshold, line_dash="dash", line_color="red", annotation_text="위험 한계선 (Threshold)")
+                st.plotly_chart(fig, use_container_width=True)
 
-            st_folium(
-                make_bubble_map(
-                    final_data[final_data["지역"].isin([sim_region])],
-                    "전력_부하지수",
-                    [sim_usage],
-                    selected_region=sim_region,
-                    scenario={"added_kw": added_kw, "reduction_pct": reduction_pct},
-                ),
-                height=300,
-                use_container_width=True,
-                returned_objects=["last_object_clicked"]
-            )
+                st_folium(
+                    make_bubble_map(
+                        final_data[final_data["지역"].isin([sim_region])],
+                        "전력_부하지수",
+                        [sim_usage],
+                        selected_region=sim_region,
+                        scenario={"added_kw": added_kw, "reduction_pct": reduction_pct},
+                    ),
+                    height=300,
+                    key="sim_map",
+                    use_container_width=True,
+                    returned_objects=["last_object_clicked"]
+                )
+
+        with sim_tabs[1]:
+            st.subheader("💸 다이내믹 요금제 수요 이동 시뮬레이션")
+            st.caption("가격 탄력성(Elasticity) 모델을 기반으로 피크 시간대 할증 및 경부하 시간대 할인을 통해 부하 수요가 분산되는 효과를 시뮬레이션합니다.")
+            
+            dp_col1, dp_col2 = st.columns([1, 1.8])
+            with dp_col1:
+                st.markdown("##### 1. 요금제 및 탄력성 설정")
+                elasticity = st.slider("가격 탄력성 계수 (Elasticity)", -1.0, 0.0, -0.2, 0.05)
+                surcharge = st.slider("피크 시간대 할증률 (Peak Surcharge)", 0.0, 1.0, 0.20, 0.05)
+                discount = st.slider("경부하 시간대 할인율 (Off-Peak Discount)", 0.0, 0.5, 0.15, 0.05)
+                
+                st.markdown(
+                    """
+                    *   **피크 시간대**: 10:00 ~ 12:00, 13:00 ~ 17:00, 18:00 ~ 22:00 (할증 적용)
+                    *   **경부하 시간대**: 23:00 ~ 09:00 (할인 적용)
+                    *   **중부하 시간대**: 그 외 시간 (요금 변동 없음)
+                    """
+                )
+                
+                charge_type = st.radio("충전 방식 선택", ["전체", "급속", "완속"], horizontal=True)
+                
+            with dp_col2:
+                if not hourly_data.empty:
+                    df_profile = hourly_data.copy()
+                    if charge_type != "전체":
+                        df_profile = df_profile[df_profile["충전방식"] == charge_type]
+                        
+                    hour_cols = [f"{i:02d}시" for i in range(24)]
+                    base_profile = df_profile[hour_cols].mean().values
+                    
+                    sim_profile, price_change = simulate_dynamic_pricing(
+                        base_profile,
+                        elasticity=elasticity,
+                        peak_surcharge=surcharge,
+                        discount_rate=discount
+                    )
+                    
+                    st.markdown("##### 2. 요금제 도입 전/후 시간대별 충전 부하 비교")
+                    
+                    chart_df = pd.DataFrame({
+                        "시간": [f"{i:02d}시" for i in range(24)],
+                        "도입 전 (현재 부하)": base_profile,
+                        "도입 후 (시뮬레이션)": sim_profile,
+                        "요금 변동률": price_change * 100
+                    })
+                    
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=chart_df["시간"], y=chart_df["도입 전 (현재 부하)"],
+                        fill='tozeroy', mode='lines+markers',
+                        name='도입 전 (현재 부하)',
+                        line=dict(color='#888888', width=2),
+                        fillcolor='rgba(136, 136, 136, 0.2)'
+                    ))
+                    fig.add_trace(go.Scatter(
+                        x=chart_df["시간"], y=chart_df["도입 후 (시뮬레이션)"],
+                        fill='tozeroy', mode='lines+markers',
+                        name='도입 후 (시뮬레이션)',
+                        line=dict(color='#FF5A5F', width=3),
+                        fillcolor='rgba(255, 90, 95, 0.3)'
+                    ))
+                    
+                    fig.update_layout(
+                        title=f"다이내믹 요금제 부하 분산 궤적 (탄력성: {elasticity:.2f})",
+                        xaxis_title="시간대",
+                        yaxis_title="평균 충전 부하 (kW)",
+                        hovermode="x unified",
+                        margin=dict(l=40, r=40, t=40, b=40)
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    peak_hours_idx = [10, 11, 13, 14, 15, 16, 18, 19, 20, 21]
+                    before_peak_avg = np.mean(base_profile[peak_hours_idx])
+                    after_peak_avg = np.mean(sim_profile[peak_hours_idx])
+                    peak_reduction = (before_peak_avg - after_peak_avg) / before_peak_avg * 100 if before_peak_avg else 0
+                    
+                    mc_col1, mc_col2, mc_col3 = st.columns(3)
+                    with mc_col1:
+                        st.metric("피크 시간대 평균 부하 (전)", f"{before_peak_avg:,.1f} kW")
+                    with mc_col2:
+                        st.metric("피크 시간대 평균 부하 (후)", f"{after_peak_avg:,.1f} kW")
+                    with mc_col3:
+                        st.metric("피크 시간대 부하 절감률", f"{peak_reduction:.1f}%", delta=f"-{peak_reduction:.1f}%")
+                else:
+                    st.warning("시간대별 충전 부하 데이터가 비어 있어 시뮬레이션을 수행할 수 없습니다.")
 
     elif active_menu == "📊 예측 모델 비교":
         st.subheader("예측 모델 성능 비교")

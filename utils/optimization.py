@@ -360,3 +360,131 @@ def run_spatial_external_validation(best_model, X, y, holdout_region="인천"):
     
     return rmse, mae, r2, None
 
+
+# ==========================================
+# Premium Control Module Functions (V4.8)
+# ==========================================
+
+def simulate_dynamic_pricing(hourly_series, elasticity=-0.2, peak_surcharge=0.0, discount_rate=0.0, peak_hours=None, off_peak_hours=None):
+    """
+    가격 탄력성을 반영하여 시간대별 수요를 분산시키는 시뮬레이션 엔진.
+    - hourly_series: pd.Series 또는 np.ndarray (24개 시간대의 충전 부하 데이터)
+    - elasticity: 가격 탄력성 계수 (기본값 -0.2, 비탄력적)
+    - peak_surcharge: peak 시간대 요금 할증률 (예: 0.20 = 20%)
+    - discount_rate: off-peak 시간대 요금 할인율 (예: 0.15 = 15%)
+    """
+    if peak_hours is None:
+        peak_hours = [10, 11, 13, 14, 15, 16, 18, 19, 20, 21]
+    if off_peak_hours is None:
+        off_peak_hours = [23, 0, 1, 2, 3, 4, 5, 6, 7, 8]
+        
+    hourly_array = np.array(hourly_series, dtype=float)
+    n_hours = len(hourly_array)
+    if n_hours != 24:
+        raise ValueError("시간대별 부하 데이터는 24개 요소로 이루어져야 합니다.")
+        
+    original_total = np.sum(hourly_array)
+    if original_total == 0:
+        return hourly_array, np.zeros(24)
+        
+    # Calculate price change vector
+    price_change = np.zeros(24)
+    for h in range(24):
+        if h in peak_hours:
+            price_change[h] = peak_surcharge
+        elif h in off_peak_hours:
+            price_change[h] = -discount_rate
+            
+    # Calculate change in demand for each hour based on elasticity
+    delta_demand = hourly_array * price_change * elasticity
+    
+    # Reductions in peak hours (where price_change > 0)
+    reductions = np.minimum(delta_demand, 0.0)
+    total_reduced_demand = -np.sum(reductions)
+    
+    # Initialize simulated demand
+    simulated_demand = hourly_array + delta_demand
+    
+    # Distribute the reduced peak demand to off-peak hours
+    off_peak_mask = np.array([1 if h in off_peak_hours else 0 for h in range(24)])
+    off_peak_sum = np.sum(hourly_array * off_peak_mask)
+    
+    if off_peak_sum > 0:
+        simulated_demand += total_reduced_demand * (hourly_array * off_peak_mask) / off_peak_sum
+        
+    # Ensure no negative demand
+    simulated_demand = np.maximum(simulated_demand, 0.0)
+    
+    # Re-normalize to strictly conserve total demand
+    new_total = np.sum(simulated_demand)
+    if new_total > 0:
+        simulated_demand = simulated_demand * (original_total / new_total)
+        
+    return simulated_demand, price_change
+
+
+def calculate_topsis_rankings(data, weights=None):
+    """
+    TOPSIS (Technique for Order of Preference by Similarity to Ideal Solution)
+    다중 기준 의사결정(MCDA) 알고리즘을 사용하여 최적 충전소 입지 우선순위를 도출합니다.
+    """
+    if data.empty:
+        return data
+        
+    df = data.copy()
+    
+    if weights is None:
+        weights = {
+            "전력_부하지수": 0.35,
+            "인프라_부하지수": 0.35,
+            "충전소_밀집도_역수": 0.15,
+            "전력망_완화율": 0.15
+        }
+        
+    # 1. 평가 피처 행렬 계산
+    # 충전소 밀집도 역수 = 1 / (충전소개수 + 1)
+    if "충전소개수" in df.columns:
+        df["충전소_밀집도_역수"] = 1.0 / (df["충전소개수"] + 1.0)
+    else:
+        df["충전소_밀집도_역수"] = 1.0 / (df["전체_충전기대수"] * 0.1 + 1.0)
+        
+    # 설치 비용 대비 전력망 완화율 = 총용량_kW / (총_전력판매량 + 1.0)
+    if "총용량_kW" in df.columns and "총_전력판매량" in df.columns:
+        df["전력망_완화율"] = df["총용량_kW"] / (df["총_전력판매량"] + 1.0)
+    else:
+        df["전력망_완화율"] = 1.0 / (df["전력_부하지수"] + 1.0)
+        
+    features = list(weights.keys())
+    
+    # 2. 의사결정 행렬 (Decision Matrix) 생성
+    X = df[features].values.astype(float)
+    
+    # 3. 정규화 (Vector Normalization)
+    norm = np.sqrt(np.sum(X**2, axis=0))
+    norm = np.where(norm == 0, 1e-5, norm)
+    R = X / norm
+    
+    # 4. 가중치 정규화 의사결정 행렬
+    w = np.array([weights[f] for f in features])
+    w = w / np.sum(w)
+    V = R * w
+    
+    # 5. 양의 이상적 해(PIS)와 음의 이상적 해(NIS) 결정
+    pis = np.max(V, axis=0)
+    nis = np.min(V, axis=0)
+    
+    # 6. Separation Measures 계산
+    S_plus = np.sqrt(np.sum((V - pis)**2, axis=1))
+    S_minus = np.sqrt(np.sum((V - nis)**2, axis=1))
+    
+    # 7. relative closeness score (C_i) 계산
+    denom = S_plus + S_minus
+    denom = np.where(denom == 0, 1e-5, denom)
+    closeness = S_minus / denom
+    
+    df["TOPSIS_점수"] = closeness
+    df["TOPSIS_순위"] = df["TOPSIS_점수"].rank(ascending=False, method="min").astype(int)
+    
+    return df
+
+
