@@ -83,7 +83,8 @@ def test_dynamic_pricing_simulation():
     print(" -> Dynamic Pricing simulation test: SUCCESS!")
 
 def test_pdf_report_generation():
-    print("[3/3] Testing Regional PDF Report Generation...")
+    print("[3/3] Testing Regional, Summary, and Highway PDF Report Generation...")
+    from utils.pdf_generator import generate_report_pdf, generate_highway_report_pdf
     
     # Create mock final_data
     mock_final = pd.DataFrame({
@@ -109,11 +110,42 @@ def test_pdf_report_generation():
     for i in range(24):
         mock_hourly[f"{i:02d}시"] = [100.0, 50.0]
         
-    pdf_bytes = generate_regional_report_pdf("안양시", mock_final, mock_hourly)
+    # 1. Regional PDF
+    pdf_bytes_reg = generate_regional_report_pdf("안양시", mock_final, mock_hourly)
+    assert isinstance(pdf_bytes_reg, (bytes, bytearray)), "Regional PDF output is not bytes"
+    assert pdf_bytes_reg.startswith(b"%PDF"), "Regional PDF output does not start with standard PDF header"
+    print("   -> Regional PDF: SUCCESS!")
     
-    # Assert PDF bytes start with standard PDF header '%PDF'
-    assert isinstance(pdf_bytes, (bytes, bytearray)), "PDF output is not bytes"
-    assert pdf_bytes.startswith(b"%PDF"), "PDF output does not start with standard PDF header"
+    # 2. Main Summary PDF (with TOP 10 Table)
+    pdf_bytes_sum = generate_report_pdf(
+        best_name="RandomForest",
+        test_rmse=0.1234,
+        top3_list=["1. 서울 강남구 (자가용)", "2. 경기 안양시 (사업자용)", "3. 인천 남동구 (자가용)"],
+        top_features=["total_ev_count", "infra_size_pca"],
+        feature_importance_img=None,
+        final_data=mock_final
+    )
+    assert isinstance(pdf_bytes_sum, (bytes, bytearray)), "Summary PDF output is not bytes"
+    assert pdf_bytes_sum.startswith(b"%PDF"), "Summary PDF output does not start with standard PDF header"
+    print("   -> Summary PDF: SUCCESS!")
+    
+    # 3. Highway PDF
+    pdf_bytes_hw = generate_highway_report_pdf(
+        hw_df=pd.DataFrame({
+            "unitName": ["서울IC", "안양IC"],
+            "routeName": ["경부선", "외곽선"],
+            "총용량_kW": [1000.0, 800.0],
+            "부하_예측점수": [90.0, 80.0],
+            "최적_추가대수": [2.0, 1.0],
+            "최적화후_부하점수": [80.0, 75.0]
+        }),
+        scenario="주말 장거리 이동 폭증",
+        budget=3
+    )
+    assert isinstance(pdf_bytes_hw, (bytes, bytearray)), "Highway PDF output is not bytes"
+    assert pdf_bytes_hw.startswith(b"%PDF"), "Highway PDF output does not start with standard PDF header"
+    print("   -> Highway PDF: SUCCESS!")
+    
     print(" -> PDF report generation test: SUCCESS!")
 
 if __name__ == "__main__":
