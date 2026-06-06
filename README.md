@@ -1,3 +1,63 @@
+# 🚀 수도권 전기차 충전소 부하 예측 및 설치 시뮬레이션 서비스 (프리미엄 관제 기능 고도화 및 UI/UX 탭 대통합) (V5.0)
+> **다이내믹 요금제, TOPSIS 최적화 입지 제안, Anomaly Detection 및 AI 비서 PDF 발간 툴 탑재 (V5.0 프리미엄 스펙)**
+> 
+> V5.0 버전에서는 사용자 편의성과 관제 직관성을 극대화하기 위해 **4대 프리미엄 핵심 피처**를 구현하고, 기존 대시보드 레이아웃의 형태를 유지한 채 **서브 탭(`st.tabs`)으로 모듈성 있게 UI/UX를 대통합**하였습니다. 또한 Lazy Evaluation(게으른 연산)을 적용해 대용량 시뮬레이션 속도 지연 없이 "대기 시간 0초" 성능을 완전 수호했습니다.
+
+![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.57.0-FF4B4B.svg)
+![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-1.16+-blue.svg)
+![FPDF2](https://img.shields.io/badge/FPDF2-2.8.7-green.svg)
+![Gemini AI](https://img.shields.io/badge/Gemini_AI-1.5_Flash-success.svg)
+![Groq Llama 3](https://img.shields.io/badge/Groq-Llama_3.3_70B-orange.svg)
+
+## 🌟 V5.0 핵심 프리미엄 관제 기능 (Highlight)
+1. **💸 다이내믹 요금제 시뮬레이터 (가격 탄력성 모델)**
+   - 가격 탄력성 계수 $\epsilon$ (기본값 `-0.2`)을 기반으로 피크 시간대 요금 할증 및 경부하 시간대 할인 도입 시의 시계열 수요 분산 효과를 계산하는 선형 시뮬레이션 엔진을 구축했습니다.
+   - 시간대별 가격 변동률에 따른 부하 이동을 Plotly Area 차트로 실시간 비교 렌더링하고, 피크 시간대 절감률을 수치화해 줍니다.
+2. **🎯 TOPSIS 다중 기준 의사결정(MCDA) 최적 입지 추천 지도**
+   - 전력 부하지수, 인프라 부하지수, 충전소 밀집도 역수, 설치 비용 대비 전력망 완화율의 4대 평가 요소를 TOPSIS 알고리즘으로 종합 평가하여 신규 설치를 위한 최적 행정구역을 선발합니다.
+   - 선발된 최우수 입지 TOP 5 지역에 대해 지도 상에 돋보이는 **골드 별(Star) 마커**와 상세 랭킹 카드 UI를 제공합니다.
+3. **🚨 이상 징후 Anomaly Detection 관제 모듈 및 경보 배너**
+   - 전압 변동성, 커넥터 온도, 패킷 유실률 등의 상태 로그를 모의 생성 및 파싱하는 Anomaly Simulator를 구축했습니다.
+   - 대시보드 최상단에 위험 알림 배너를 띄우고, Leaflet CSS의 `@keyframes pulse-anim` 효과를 이용한 HTML DivIcon 기반의 **빨간색 깜빡임(Pulse) 마커**로 이상 감지 지역을 지도 상에 실시간 점멸 표시합니다.
+4. **🖨️ AI 관제비서 실시간 PDF 보고서 발간 툴**
+   - 특정 자치구의 현황 테이블, 증설 시뮬레이션 결과 및 다이내믹 요금제 추천 전략을 한데 묶은 3페이지 분량의 PDF 보고서 생성기(`generate_regional_report_pdf`)를 신설했습니다.
+   - 사용자가 AI 관제비서에게 *"안양시 보고서 다운로드하게 해줘"*라고 지시하면, 답변창 아래에 `st.download_button`을 동적으로 렌더링해 즉각 다운로드할 수 있게 연동했습니다.
+5. **🗂️ 탭 구조를 이용한 UI/UX 대통합 및 Lazy Evaluation 적용**
+   - 최상단 메뉴 개수 증가로 인한 번잡함을 방지하기 위해 `🗺️ 지도 버블맵` ➔ 3개 서브 탭 분할, `💡 설치 시뮬레이션` ➔ `💡 분석 시뮬레이터` 명칭 변경 및 2개 서브 탭 분할 통합 구조를 설계했습니다.
+   - 각 서브 탭 활성화 시에만 연산이 동작하도록 Lazy Evaluation을 적용하여 "대기 시간 0초"와 Rerun 억제 성능을 완성했습니다.
+
+## 📁 V5.0 정비된 디렉토리 구조 (최종 프리미엄 아키텍처)
+```text
+📦 EVcharge_project
+ ┣ 📂 archive/                  # 개발 히스토리 및 레거시 스크립트 백업 보관함
+ ┣ 📂 components/               # UI 공통 재사용 컴포넌트
+ ┣ 📂 dataset/                  # 분석용 원천 공공 데이터셋 및 위경도 파일
+ ┣ 📂 results/                  # 머신러닝 학습 지표 및 종합 시각화 결과
+ ┃ ┣ 📜 best_model.onnx        # Scikit-Learn 의존성 탈피를 위한 최우수 ONNX 모델
+ ┃ ┗ 📜 precomputed_analytics.json # 렉 제어를 위한 대시보드 시각화 및 학술 지표 사전 연산 DB
+ ┣ 📂 scripts/                  # 로컬 배치 학습 및 사전 연산 스크립트 격리 보관함
+ ┣ 📂 tests/                    # 정식 회귀 테스트 및 시스템 진단 스크립트 보관함
+ ┃ ┣ 📜 system_health_check.py # 대시보드 런타임 시스템 점검 도구
+ ┃ ┣ 📜 test_ai_xai_dr.py      # AI 관제비서 핵심 시뮬레이션 검증 도구
+ ┃ ┗ 📜 test_v48_features.py   # [★V5.0 추가] 다이내믹 요금제, TOPSIS 최적화, PDF 발간 단위 테스트
+ ┣ 📂 utils/                    # 핵심 시뮬레이션 및 데이터 가공 처리 엔진 폴더
+ ┃ ┣ 📜 data_processing.py     # 데이터 처리 및 ONNX/JSON 융합 로더 탑재
+ ┃ ┣ 📜 models.py              # ML/DL 모델 구조 및 고정 피처 매핑 구조 적용
+ ┃ ┣ 📜 optimization.py        # [★V5.0 고도화] TOPSIS 알고리즘 및 가격 탄력성 수요 분산 엔진 탑재
+ ┃ ┣ 📜 pdf_generator.py       # [★V5.0 고도화] FPDF 기반 지역별 맞춤 보고서 생성기 추가
+ ┃ ┗ 📜 visualizations.py      # [★V5.0 고도화] 골드 스타 추천 마커 및 경고 Pulse 마커 적용
+ ┣ 📂 views/                    # 대시보드 화면 및 라우팅 뷰
+ ┃ ┣ 📜 ai_assistant.py        # [★V5.0 고도화] AI 비서 PDF 발간 툴 바인딩 및 다운로드 버튼 동적 연동
+ ┃ ┣ 📜 highway_dashboard.py   # 고속도로 시뮬레이션 화면 
+ ┃ ┗ 📜 urban_dashboard.py     # [★V5.0 고도화] 3원화 지도 탭, 2원화 시뮬레이션 탭 및 이상감지 배너 통합
+ ┣ 📜 app.py                   # ONNX/JSON 로더 적용 최상위 라우터 및 상태 관리자
+ ┣ 📜 requirements.txt         # 런타임 가벼운 배포 전용 패키지 명세서
+ ┗ 📜 requirements-dev.txt     # 로컬 모델 재학습 및 배치 빌드용 전용 패키지 명세서
+```
+
+---
+
 # 🚀 수도권 전기차 충전소 부하 예측 및 설치 시뮬레이션 서비스 (ONNX+JSON 이원화 및 지능형 관제 통합) (V4.0)
 > **클라우드 서버 배포 안정성 극대화 및 패키지 역직렬화 병목 원천 차단 (V4.0 이원화 아키텍처)**
 > 
