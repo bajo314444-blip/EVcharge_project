@@ -631,7 +631,16 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
                 
             except Exception as e:
-                st.error(f"Gemini API 호출 중 오류가 발생했습니다: {e}")
+                err_str = str(e)
+                if "429" in err_str or "quota" in err_str.lower() or "ResourceExhausted" in err_str:
+                    st.error(
+                        "⚠️ **Gemini API 호출 한도(Quota/Rate Limit)를 초과했습니다.**\n\n"
+                        "현재 사용 중인 Gemini API Key의 분당 요청 횟수(RPM) 제한에 도달했거나 일일 할당량이 부족합니다. "
+                        "약 30초에서 1분 정도 대기하신 후 다시 질문을 전송해 주세요.\n\n"
+                        "*참고: 지속적으로 발생할 경우 사이드바에서 다른 API Key를 입력하시거나 Google AI Studio의 할당량을 확인해 주십시오.*"
+                    )
+                else:
+                    st.error(f"Gemini API 호출 중 오류가 발생했습니다: {e}")
                 
         # Rerun to clear suggestion button trigger state cleanly
         if clicked_prompt:
