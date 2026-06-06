@@ -45,19 +45,19 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
     anomalies = st.session_state["anomalies_list"]
     show_banner = st.session_state.get("show_warning_banner", True)
     if show_banner and anomalies:
-        warn_col1, warn_col2 = st.columns([19, 1])
+        warn_col1, warn_col2 = st.columns([35, 1])
         with warn_col1:
             st.markdown(
                 f"""
-                <div style="background-color: #FF4B4B; color: white; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="background-color: #FF4B4B; color: white; padding: 12px; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                     🚨 [경고] 현재 수도권 충전소 {len(anomalies)}개 지점에서 이상 징후(과열, 전압 급변, 통신 장애)가 실시간 감지되었습니다. '이상 징후 관제 지도' 탭에서 상세 현황을 확인하세요.
                 </div>
                 """,
                 unsafe_allow_html=True
             )
         with warn_col2:
-            st.write("")
-            if st.button("❌", key="close_warning_banner", help="알림 배너 닫기", use_container_width=True):
+            st.markdown('<div style="padding-top: 10px;"></div>', unsafe_allow_html=True)
+            if st.button("❌", key="close_warning_banner", help="알림 배너 닫기"):
                 st.session_state["show_warning_banner"] = False
                 st.rerun()
 

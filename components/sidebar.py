@@ -25,6 +25,9 @@ def render_urban_sidebar(final_data):
         province_filter = st.multiselect("시도", METRO_SHORT, default=METRO_SHORT)
         
         st.header("관제 옵션")
-        st.toggle("🚨 실시간 이상 경보 배너 활성화", value=True, key="show_warning_banner")
+        if "show_warning_banner" not in st.session_state:
+            st.session_state["show_warning_banner"] = True
+        show_banner = st.toggle("🚨 실시간 이상 경보 배너 활성화", value=st.session_state["show_warning_banner"])
+        st.session_state["show_warning_banner"] = show_banner
         
         return usage_options, metric, province_filter
