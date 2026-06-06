@@ -1,5 +1,13 @@
 import os
-import joblib
+import sys
+
+# 실행 디렉토리에 관계없이 작업 디렉토리(CWD)를 프로젝트 루트로 강제 고정하고 sys.path 등록
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, ".."))
+os.chdir(project_root)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import json
 import pandas as pd
 import numpy as np
@@ -269,19 +277,6 @@ def export_trained_models():
     except Exception as e:
         print(f"[ERROR] Failed to export JSON analytics: {e}")
 
-    # 5. Export joblib pack for backward compatibility (optional but safe)
-    package = {
-        "model_state": model_state,
-        "model_state_smote": model_state_smote
-    }
-    output_path = "results/trained_model_state.joblib"
-    print(f"[5/5] Serializing model state to '{output_path}' for fallback compatibility...")
-    try:
-        joblib.dump(package, output_path, compress=3)
-        print(f"[SUCCESS] joblib state successfully saved to '{output_path}'")
-    except Exception as e:
-        print(f"[WARNING] Failed to save joblib file: {e}")
-        
     print("[SUCCESS] Two-track models, embeddings, and robustness metrics exported successfully!")
 
 if __name__ == "__main__":

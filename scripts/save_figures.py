@@ -1,4 +1,13 @@
 import os
+import sys
+
+# 실행 디렉토리에 관계없이 작업 디렉토리(CWD)를 프로젝트 루트로 강제 고정하고 sys.path 등록
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, ".."))
+os.chdir(project_root)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import pandas as pd
 import numpy as np
 import plotly.express as px
