@@ -40,7 +40,8 @@ def _write_html_section(pdf, html_str, font_family, min_space=30):
     if remaining < min_space:
         pdf.add_page()
     pdf.set_font(font_family, style="", size=10)
-    pdf.write_html(html_str)
+    wrapped_html = f'<p style="line-height: 1.6;">{html_str}</p>' if not html_str.strip().startswith("<p") else html_str
+    pdf.write_html(wrapped_html)
 
 def _write_section_title(pdf, title_text, font_family, min_space=30):
     remaining = (pdf.h - pdf.b_margin) - pdf.get_y()
@@ -66,8 +67,9 @@ def _write_bullet_html(pdf, body_html, font_family, min_space=15, line_height=5)
     pdf.set_left_margin(15)
     pdf.set_x(15)
     
-    # 3. Write HTML
-    pdf.write_html(body_html)
+    # 3. Write HTML wrapped in paragraph with line-height
+    wrapped_html = f'<p style="line-height: 1.6;">{body_html}</p>'
+    pdf.write_html(wrapped_html)
     
     # 4. Restore left margin
     pdf.set_left_margin(old_l_margin)
@@ -104,7 +106,7 @@ def _create_load_chart_img(base_profile, sim_profile, output_path, nanum_path):
     ax.legend(prop=font_prop, loc="upper right", fontsize=7)
     
     fig.tight_layout()
-    fig.savefig(output_path, dpi=200)
+    fig.savefig(output_path, dpi=300, transparent=False, facecolor='white')
     plt.close(fig)
 
 def _create_intervention_chart_img(before, after, output_path, nanum_path):
@@ -138,7 +140,7 @@ def _create_intervention_chart_img(before, after, output_path, nanum_path):
         label.set_fontproperties(font_prop)
         
     fig.tight_layout()
-    fig.savefig(output_path, dpi=200)
+    fig.savefig(output_path, dpi=300, transparent=False, facecolor='white')
     plt.close(fig)
 
 
@@ -198,7 +200,8 @@ def generate_report_pdf(best_name, test_rmse, top3_list, top_features, feature_i
     pdf.set_font(font_family, style="B", size=11)
     pdf.set_text_color(0, 0, 0)
     summary_text = f"[핵심 요약]\n현재 수도권 내 전력 및 충전 대기가 가장 심각할 것으로 우려되는 TOP 3 고위험 지역 도출 완료.\n{best_name} 예측 모델(RMSE: {test_rmse:.4f}) 기반의 시뮬레이션을 통해, 향후 해당 지역을 최우선으로 한 맞춤형 인프라 확충 정책 수립 요망."
-    pdf.multi_cell(0, 10, summary_text, border=1, fill=True, align="L", new_x="LMARGIN", new_y="NEXT")
+    line_height = 1.65 * (11 / pdf.k)
+    pdf.multi_cell(0, line_height, summary_text, border=1, fill=True, align="L", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(8)
     
     _write_section_title(pdf, "□ 추진 배경 및 현황", font_family)

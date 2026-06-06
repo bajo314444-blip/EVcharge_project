@@ -942,7 +942,7 @@ def render_report(filtered, final_data, model_state):
     fig_mat.tight_layout()
     
     tmp_imp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-    fig_mat.savefig(tmp_imp.name, dpi=150, bbox_inches='tight')
+    fig_mat.savefig(tmp_imp.name, dpi=300, bbox_inches='tight', transparent=False, facecolor='white')
     plt.close(fig_mat)
 
     # PDF 다운로드 버튼
