@@ -71,6 +71,162 @@ def get_simulation_result(region: str, count: int, power_type: str = "급속") -
 
     return "\n".join(lines)
 
+@st.cache_data(show_spinner=False, ttl=600)
+def get_shap_analysis(region: str) -> str:
+    """
+    지정된 수도권 행정구역의 부하 예측 결과에 대해 
+    각 피처(인프라, 전기차수, 용량 등)가 미친 긍정/부정적 기여도(SHAP)를 분석합니다.
+    
+    Args:
+        region: 분석할 행정구역명 (예: '안양시 동안구', '안양시', '수원시 동안구' 등)
+    Returns:
+        기여도가 높은 주요 변수 분석 및 기여도 요약 텍스트
+    """
+    import numpy as np
+    import pandas as pd
+    import gc
+    from utils.visualizations import get_cached_local_shap
+    
+    final_data = st.session_state.get("final_data")
+    model_state = st.session_state.get("model_state")
+    if final_data is None or model_state is None:
+        return "시스템 에러: 모델 상태 또는 데이터가 존재하지 않습니다."
+        
+    matched = final_data[final_data["지역"].str.contains(region, case=False, na=False)]
+    if matched.empty:
+        matched = final_data[final_data["시군구"].str.contains(region, case=False, na=False)]
+        if matched.empty:
+            return f"검색된 지역 '{region}'을 찾을 수 없습니다. 경기 안양시 동안구 등 수도권 내 정확한 행정구역명을 입력해 주세요."
+            
+    best_model = model_state["models"][model_state["best_name"]]
+    X_all = model_state["X"]
+    
+    local_row = matched[matched["용도"] == "자가용"]
+    if local_row.empty:
+        local_row = matched.head(1)
+    
+    r_name = local_row.iloc[0]["지역"]
+    usage = local_row.iloc[0]["용도"]
+    
+    feature_cols = model_state["feature_columns"]
+    local_x = X_all[(final_data["지역"] == r_name) & (final_data["용도"] == usage)].head(1)
+    if local_x.empty:
+        return f"'{r_name} ({usage})' 지역에 대한 피처 데이터를 찾지 못해 SHAP 분석을 수행할 수 없습니다."
+        
+    sample = X_all.sample(min(60, len(X_all)), random_state=42)
+    
+    try:
+        base_val, vals = get_cached_local_shap(model_state["best_name"], best_model, sample, local_x)
+        
+        contributions = []
+        for col, val in zip(feature_cols, vals):
+            contributions.append({
+                "Feature": col,
+                "SHAP_Value": float(val)
+            })
+            
+        df_contrib = pd.DataFrame(contributions)
+        df_contrib["Abs_SHAP"] = df_contrib["SHAP_Value"].abs()
+        df_contrib = df_contrib.sort_values("Abs_SHAP", ascending=False)
+        
+        lines = []
+        lines.append(f"### 🧠 {r_name} ({usage}) 부하 예측 SHAP 기여도 분석")
+        lines.append(f"- **기본 기대 예측값(Base Value)**: {base_val:.2f}")
+        lines.append(f"- **최종 모델 예측 부하지수**: {local_row.iloc[0]['전력_부하지수']:.2f}\n")
+        lines.append("#### 📊 주요 피처별 영향력 분석 (Top 5)")
+        
+        for _, r in df_contrib.head(5).iterrows():
+            f_name = r["Feature"]
+            s_val = r["SHAP_Value"]
+            direction = "🔺 증가 기여" if s_val >= 0 else "🔻 감소 기여"
+            lines.append(f"  - **{f_name}**: {s_val:+.4f} ({direction})")
+            
+        st.session_state["last_shap_chart"] = {
+            "region": r_name,
+            "usage": usage,
+            "features": df_contrib["Feature"].tolist(),
+            "values": df_contrib["SHAP_Value"].tolist()
+        }
+        
+        gc.collect()
+        return "\n".join(lines)
+        
+    except Exception as e:
+        return f"SHAP 계산 중 에러가 발생했습니다: {e}"
+
+@st.cache_data(show_spinner=False, ttl=600)
+def run_dr_simulation(region: str, intervention_type: str = "V2G_Peak_Shaving") -> str:
+    """
+    지정된 수도권 행정구역에 스마트 그리드 수요반응(DR) 또는 피크 컷 정책을 도입했을 때의 
+    예측 전력 부하지수 완화율 및 과부하 지연 효과를 시뮬레이션합니다.
+    
+    Args:
+        region: 분석할 행정구역명 (예: '안양시 동안구', '안양시' 등)
+        intervention_type: 적용할 정책 개입 타입
+                           ('V2G_Peak_Shaving' 또는 'Smart_Charging_50')
+    Returns:
+        수요반응 시뮬레이션 결과에 대한 상세 요약 보고서
+    """
+    import numpy as np
+    import pandas as pd
+    import gc
+    from utils.optimization import calculate_single_region_trajectory
+
+    final_data = st.session_state.get("final_data")
+    if final_data is None:
+        return "시스템 에러: 데이터가 세션에 존재하지 않습니다."
+
+    matched = final_data[final_data["지역"].str.contains(region, case=False, na=False)]
+    if matched.empty:
+        matched = final_data[final_data["시군구"].str.contains(region, case=False, na=False)]
+        if matched.empty:
+            return f"검색된 지역 '{region}'을 찾을 수 없습니다. 경기 안양시 동안구 등 수도권 내 정확한 행정구역명을 입력해 주세요."
+
+    if "V2G" in intervention_type:
+        reduction_multiplier = 0.70
+        policy_name = "V2G 양방향 충방전 Peak Shaving (피크 부하 30% 감축)"
+    else:
+        reduction_multiplier = 0.80
+        policy_name = "Smart Charging 50% 분배제한 (피크 부하 20% 감축)"
+
+    critical_threshold = float(final_data["전력_부하지수"].quantile(0.8))
+
+    lines = []
+    lines.append(f"### 🔋 {region} 스마트 그리드 수요반응(DR) 시뮬레이션 결과")
+    lines.append(f"- **적용 정책**: {policy_name}")
+    lines.append(f"- **전력 부하 임계치**: {critical_threshold:,.2f} (상위 20% 고위험 기준선)\n")
+
+    for idx, row in matched.iterrows():
+        r_name = row["지역"]
+        usage = row["용도"]
+        before_load = float(row["전력_부하지수"])
+        base_load = float(row["총_전력판매량"])
+        capacity = float(row["총용량_kW"])
+
+        sim_load = base_load * reduction_multiplier
+        after_load = sim_load / capacity if capacity > 0 else 0
+        reduction_pct = (before_load - after_load) / before_load * 100 if before_load > 0 else 0
+
+        traj_df, overload_before, overload_after = calculate_single_region_trajectory(
+            sim_load, capacity, 0.05, 0.0, critical_threshold
+        )
+        _, overload_before_orig, _ = calculate_single_region_trajectory(
+            base_load, capacity, 0.05, 0.0, critical_threshold
+        )
+
+        delay_years = overload_after - overload_before_orig
+        delay_text = f"+{delay_years}년 지연" if delay_years > 0 else "변동 없음"
+        before_txt = f"{overload_before_orig}년 뒤" if overload_before_orig < 15 else "안전 (15년+)"
+        after_txt = f"{overload_after}년 뒤" if overload_after < 15 else "안전 (15년+)"
+
+        lines.append(f"#### 📍 {r_name} ({usage} 기준)")
+        lines.append(f"  - **전력 부하지수**: {before_load:,.2f} ➡️ **{after_load:,.2f}** ({reduction_pct:+.1f}% 감소)")
+        lines.append(f"  - **과부하 도달 시점**: {before_txt} ➡️ **{after_txt}** (지연 효과: {delay_text})")
+        lines.append("")
+
+    gc.collect()
+    return "\n".join(lines)
+
 def get_gemini_client():
     # 1. Check secrets first
     api_key = st.secrets.get("GEMINI_API_KEY")
@@ -324,6 +480,10 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
         prompt = clicked_prompt
 
     if prompt:
+        # Clear previous XAI chart on new prompt
+        if "last_shap_chart" in st.session_state:
+            del st.session_state["last_shap_chart"]
+            
         # Display user message in chat message container
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -340,7 +500,7 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 chat_model = genai.GenerativeModel(
                     model_name=selected_model_name,
                     system_instruction=system_instruction,
-                    tools=[get_simulation_result]
+                    tools=[get_simulation_result, get_shap_analysis, run_dr_simulation]
                 )
                 
                 # Setup chat conversation with context history
@@ -370,26 +530,33 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                                     region = args.get("region", "")
                                     count = int(args.get("count", 10))
                                     power_type = args.get("power_type", "급속")
-                                    
-                                    # Execute precomputed check / real-time fallback
                                     sim_res = get_simulation_result(region, count, power_type)
+                                elif name == "get_shap_analysis":
+                                    region = args.get("region", "")
+                                    sim_res = get_shap_analysis(region)
+                                elif name == "run_dr_simulation":
+                                    region = args.get("region", "")
+                                    intervention_type = args.get("intervention_type", "V2G_Peak_Shaving")
+                                    sim_res = run_dr_simulation(region, intervention_type)
+                                else:
+                                    sim_res = "알 수 없는 함수 호출입니다."
                                     
-                                    # Feedback loop to Gemini LLM with JSON payload fallback
-                                    try:
-                                        func_response_part = genai.types.Part.from_function_response(
-                                            name=name,
-                                            response={"result": sim_res}
-                                        )
-                                    except Exception:
-                                        func_response_part = {
-                                            "function_response": {
-                                                "name": name,
-                                                "response": {"result": sim_res}
-                                            }
+                                # Feedback loop to Gemini LLM with JSON payload fallback
+                                try:
+                                    func_response_part = genai.types.Part.from_function_response(
+                                        name=name,
+                                        response={"result": sim_res}
+                                    )
+                                except Exception:
+                                    func_response_part = {
+                                        "function_response": {
+                                            "name": name,
+                                            "response": {"result": sim_res}
                                         }
+                                    }
                                     
-                                    response = chat.send_message(func_response_part)
-                                    break
+                                response = chat.send_message(func_response_part)
+                                break
                                     
                     full_response = response.text
                     
@@ -403,4 +570,43 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 
         # Rerun to clear suggestion button trigger state cleanly
         if clicked_prompt:
+            st.rerun()
+
+    # Render interactive Plotly SHAP chart if data exists in session state
+    if st.session_state.get("last_shap_chart"):
+        chart_info = st.session_state["last_shap_chart"]
+        r_name = chart_info["region"]
+        usage = chart_info["usage"]
+        features = chart_info["features"]
+        values = chart_info["values"]
+        
+        import plotly.express as px
+        import pandas as pd
+        
+        df_shap = pd.DataFrame({
+            "변수명": features,
+            "기여도 (SHAP)": values,
+            "영향": ["상승 기여" if v >= 0 else "감소 기여" for v in values]
+        })
+        
+        df_shap["abs_val"] = df_shap["기여도 (SHAP)"].abs()
+        df_shap = df_shap.sort_values("abs_val", ascending=True).tail(8) # Top 8
+        
+        fig = px.bar(
+            df_shap,
+            x="기여도 (SHAP)",
+            y="변수명",
+            color="영향",
+            orientation="h",
+            color_discrete_map={"상승 기여": "#FF5A5F", "감소 기여": "#3B82F6"},
+            title=f"📊 {r_name} ({usage}) 예측 변수 영향도 (SHAP Top 8)"
+        )
+        fig.update_layout(
+            margin=dict(l=20, r=20, t=40, b=20),
+            height=300
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        if st.button("❌ 차트 닫기", use_container_width=True):
+            del st.session_state["last_shap_chart"]
             st.rerun()
