@@ -487,14 +487,28 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
     # API configuration and keys retrieval
     current_provider = st.session_state.get("ai_provider", "Gemini (Google)")
     
+    # 1. Retrieve keys from st.secrets first (Backend only, never sent to frontend)
+    gemini_secret_key = st.secrets.get("GEMINI_API_KEY")
+    groq_secret_key = st.secrets.get("GROQ_API_KEY")
+    openrouter_secret_key = st.secrets.get("OPENROUTER_API_KEY")
+    
     # Check if we have key for the active provider
     active_key = None
     if current_provider == "Gemini (Google)":
-        active_key = st.secrets.get("GEMINI_API_KEY") or st.session_state.get("user_gemini_api_key")
+        if gemini_secret_key:
+            active_key = gemini_secret_key
+        else:
+            active_key = st.session_state.get("user_gemini_api_key")
     elif current_provider == "Groq (Llama 3)":
-        active_key = st.session_state.get("user_groq_api_key")
+        if groq_secret_key:
+            active_key = groq_secret_key
+        else:
+            active_key = st.session_state.get("user_groq_api_key")
     else: # OpenRouter
-        active_key = st.session_state.get("user_openrouter_api_key")
+        if openrouter_secret_key:
+            active_key = openrouter_secret_key
+        else:
+            active_key = st.session_state.get("user_openrouter_api_key")
 
     # Expand settings UI
     with st.expander("⚙️ AI 관제비서 API 및 엔진 설정", expanded=not active_key):
@@ -511,36 +525,53 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 st.rerun()
                 
         with key_col:
-            if selected_prov == "Gemini (Google)":
-                gemini_key = st.text_input(
-                    "Gemini API Key 입력",
-                    type="password",
-                    value=st.secrets.get("GEMINI_API_KEY") or st.session_state.get("user_gemini_api_key", ""),
-                    key="user_gemini_key_input_new"
-                )
-                if gemini_key and gemini_key != st.session_state.get("user_gemini_api_key"):
-                    st.session_state["user_gemini_api_key"] = gemini_key
-                    st.rerun()
-            elif selected_prov == "Groq (Llama 3)":
-                groq_key = st.text_input(
-                    "Groq API Key 입력",
-                    type="password",
-                    value=st.session_state.get("user_groq_api_key", ""),
-                    key="user_groq_key_input_new"
-                )
-                if groq_key and groq_key != st.session_state.get("user_groq_api_key"):
-                    st.session_state["user_groq_api_key"] = groq_key
-                    st.rerun()
+            # Check if key is available in Secrets for the selected provider
+            has_secret = False
+            if selected_prov == "Gemini (Google)" and gemini_secret_key:
+                has_secret = True
+            elif selected_prov == "Groq (Llama 3)" and groq_secret_key:
+                has_secret = True
+            elif selected_prov == "OpenRouter (무료 모델)" and openrouter_secret_key:
+                has_secret = True
+                
+            if has_secret:
+                st.success("✅ **API Key가 시스템 설정(Secrets)에 안전하게 등록되어 있습니다.**")
+                st.caption("보안을 위해 실제 API 키는 브라우저에 표시되거나 전송되지 않습니다.")
             else:
-                openrouter_key = st.text_input(
-                    "OpenRouter API Key 입력",
-                    type="password",
-                    value=st.session_state.get("user_openrouter_api_key", ""),
-                    key="user_openrouter_key_input_new"
-                )
-                if openrouter_key and openrouter_key != st.session_state.get("user_openrouter_api_key"):
-                    st.session_state["user_openrouter_api_key"] = openrouter_key
-                    st.rerun()
+                # Show text input only if not available in Secrets, but do NOT populate value from secrets!
+                if selected_prov == "Gemini (Google)":
+                    gemini_key = st.text_input(
+                        "Gemini API Key 입력 (임시)",
+                        type="password",
+                        placeholder="API Key를 입력하세요",
+                        value=st.session_state.get("user_gemini_api_key", ""),
+                        key="user_gemini_key_input_new"
+                    )
+                    if gemini_key and gemini_key != st.session_state.get("user_gemini_api_key"):
+                        st.session_state["user_gemini_api_key"] = gemini_key
+                        st.rerun()
+                elif selected_prov == "Groq (Llama 3)":
+                    groq_key = st.text_input(
+                        "Groq API Key 입력 (임시)",
+                        type="password",
+                        placeholder="API Key를 입력하세요",
+                        value=st.session_state.get("user_groq_api_key", ""),
+                        key="user_groq_key_input_new"
+                    )
+                    if groq_key and groq_key != st.session_state.get("user_groq_api_key"):
+                        st.session_state["user_groq_api_key"] = groq_key
+                        st.rerun()
+                else:
+                    openrouter_key = st.text_input(
+                        "OpenRouter API Key 입력 (임시)",
+                        type="password",
+                        placeholder="API Key를 입력하세요",
+                        value=st.session_state.get("user_openrouter_api_key", ""),
+                        key="user_openrouter_key_input_new"
+                    )
+                    if openrouter_key and openrouter_key != st.session_state.get("user_openrouter_api_key"):
+                        st.session_state["user_openrouter_api_key"] = openrouter_key
+                        st.rerun()
                     
     if not active_key:
         st.warning(f"⚠️ **{current_provider} API 키가 등록되지 않았습니다.**")
@@ -900,15 +931,20 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 
             except Exception as e:
                 err_str = str(e)
-                if "429" in err_str or "quota" in err_str.lower() or "ResourceExhausted" in err_str:
+                # API 키 등 보안에 민감한 정보가 에러 메시지에 포함되어 노출되지 않도록 마스킹 처리
+                import re
+                clean_err = re.sub(r'(Bearer\s+)[a-zA-Z0-9_\-\.\/]+', r'\1[MASKED_API_KEY]', err_str)
+                clean_err = re.sub(r'(gsk_[a-zA-Z0-9_\-]+|sk\-[a-zA-Z0-9_\-]+)', '[MASKED_API_KEY]', clean_err)
+                
+                if "429" in clean_err or "quota" in clean_err.lower() or "ResourceExhausted" in clean_err:
                     st.error(
-                        "⚠️ **Gemini API 호출 한도(Quota/Rate Limit)를 초과했습니다.**\n\n"
-                        "현재 사용 중인 Gemini API Key의 분당 요청 횟수(RPM) 제한에 도달했거나 일일 할당량이 부족합니다. "
-                        "약 30초에서 1분 정도 대기하신 후 다시 질문을 전송해 주세요.\n\n"
-                        "*참고: 지속적으로 발생할 경우 사이드바에서 다른 API Key를 입력하시거나 Google AI Studio의 할당량을 확인해 주십시오.*"
+                        f"⚠️ **AI 서비스 API 호출 한도(Quota/Rate Limit)를 초과했습니다.**\n\n"
+                        f"현재 사용 중인 {current_provider} API Key의 호출 제한에 도달했거나 할당량이 부족합니다. "
+                        f"잠시 대기하신 후 다시 시도해 주세요.\n\n"
+                        f"*상세 에러: {clean_err}*"
                     )
                 else:
-                    st.error(f"Gemini API 호출 중 오류가 발생했습니다: {e}")
+                    st.error(f"⚠️ **{current_provider} 호출 중 오류가 발생했습니다:** {clean_err}")
                 
         # Rerun to clear suggestion button trigger state cleanly
         if clicked_prompt:
