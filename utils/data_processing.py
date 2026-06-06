@@ -379,3 +379,146 @@ def cached_survival(final_json, growth_rate):
     return run_survival_simulation(final_df, growth_rate)
 
 
+@st.cache_data(show_spinner="Partial Dependence 계산 중...")
+def cached_partial_dependence(best_name, _model, X_all, selected_feature):
+    grid = np.linspace(X_all[selected_feature].quantile(0.05), X_all[selected_feature].quantile(0.95), 30)
+    pd_rows = []
+    for value in grid:
+        X_tmp = X_all.copy()
+        X_tmp[selected_feature] = value
+        pd_rows.append({"Feature value": value, "Mean prediction": _model.predict(X_tmp).mean()})
+    return pd.DataFrame(pd_rows)
+
+
+class ONNXModelWrapper:
+    def __init__(self, onnx_path):
+        import onnxruntime as ort
+        self.session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
+        self.input_name = self.session.get_inputs()[0].name
+        self.output_name = self.session.get_outputs()[0].name
+
+    def predict(self, X):
+        import numpy as np
+        import pandas as pd
+        if isinstance(X, pd.DataFrame):
+            X_arr = X.values.astype(np.float32)
+        else:
+            X_arr = np.asarray(X, dtype=np.float32)
+            
+        if len(X_arr.shape) == 1:
+            X_arr = X_arr.reshape(1, -1)
+            
+        preds = self.session.run([self.output_name], {self.input_name: X_arr})[0]
+        if len(preds.shape) > 1 and preds.shape[1] == 1:
+            preds = preds.squeeze(axis=1)
+        return preds
+
+
+def load_precomputed_analytics(json_path, onnx_path):
+    import json
+    import os
+    import pandas as pd
+    import numpy as np
+    
+    if not os.path.exists(json_path) or not os.path.exists(onnx_path):
+        raise FileNotFoundError("ONNX model or JSON precomputed analytics file not found.")
+        
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        
+    metrics = pd.DataFrame(data["metrics"])
+    importance = pd.DataFrame(data["importance"])
+    predictions = pd.DataFrame(data["predictions"])
+    
+    X = pd.DataFrame(data["X"])
+    X_test = pd.DataFrame(data["X_test"])
+    X_train = pd.DataFrame(data["X_train"])
+    
+    y = pd.Series(data["y"])
+    y_test = pd.Series(data["y_test"])
+    y_train = pd.Series(data["y_train"])
+    
+    best_name = data["best_name"]
+    best_model = ONNXModelWrapper(onnx_path)
+    
+    model_state = {
+        "metrics": metrics,
+        "importance": importance,
+        "predictions": predictions,
+        "best_name": best_name,
+        "feature_columns": data["feature_columns"],
+        "model_groups": data["model_groups"],
+        "X": X,
+        "y": y,
+        "X_train": X_train,
+        "y_train": y_train,
+        "X_test": X_test,
+        "y_test": y_test,
+        "models": {best_name: best_model},
+    }
+    
+    if "precomputed_tsne_xy" in data:
+        model_state["precomputed_tsne_xy"] = np.array(data["precomputed_tsne_xy"])
+    if "precomputed_umap_xy" in data:
+        model_state["precomputed_umap_xy"] = np.array(data["precomputed_umap_xy"])
+        model_state["precomputed_umap_title"] = data.get("precomputed_umap_title", "UMAP")
+    if "precomputed_cca_x_c" in data and "precomputed_cca_y_c" in data:
+        model_state["precomputed_cca_x_c"] = np.array(data["precomputed_cca_x_c"])
+        model_state["precomputed_cca_y_c"] = np.array(data["precomputed_cca_y_c"])
+        
+    if "precomputed_bootstrap" in data:
+        pb = data["precomputed_bootstrap"]
+        model_state["precomputed_bootstrap"] = (
+            pb["ci_rmse"], 
+            pb["ci_r2"], 
+            np.array(pb["bootstrap_rmse"]), 
+            np.array(pb["bootstrap_r2"])
+        )
+        
+    if "precomputed_nested_cv" in data:
+        pnc = data["precomputed_nested_cv"]
+        model_state["precomputed_nested_cv"] = (
+            pnc["mean_rmse"],
+            pnc["std_rmse"],
+            np.array(pnc["outer_scores"])
+        )
+        
+    if "precomputed_adversarial" in data:
+        model_state["precomputed_adversarial"] = pd.DataFrame(data["precomputed_adversarial"])
+        
+    if "precomputed_ablation" in data:
+        model_state["precomputed_ablation"] = pd.DataFrame(data["precomputed_ablation"])
+        
+    if "precomputed_dca" in data:
+        model_state["precomputed_dca"] = pd.DataFrame(data["precomputed_dca"])
+        
+    if "precomputed_spatial" in data:
+        ps = data["precomputed_spatial"]
+        spatial_decoded = {}
+        for region, metrics_list in ps.items():
+            spatial_decoded[region] = (
+                metrics_list[0],
+                metrics_list[1],
+                metrics_list[2],
+                None
+            )
+        model_state["precomputed_spatial"] = spatial_decoded
+        
+    if "precomputed_survival_5" in data:
+        model_state["precomputed_survival_5"] = pd.DataFrame(data["precomputed_survival_5"])
+        
+    if "precomputed_roc_data" in data:
+        model_state["precomputed_roc_data"] = data["precomputed_roc_data"]
+        
+    model_state_smote = None
+    if "model_state_smote_metrics" in data:
+        smote_metrics = pd.DataFrame(data["model_state_smote_metrics"])
+        model_state_smote = {
+            "metrics": smote_metrics,
+            "best_name": data.get("model_state_smote_best_name", "RandomForest (Tuned)")
+        }
+        
+    return model_state, model_state_smote
+
+
+
