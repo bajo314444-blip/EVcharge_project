@@ -294,7 +294,15 @@ def generate_report_from_conversation(region: str) -> str:
         pdf_bytes = generate_regional_report_pdf(region, final_data, hourly_data)
         st.session_state["pdf_report_bytes"] = pdf_bytes
         st.session_state["pdf_report_region"] = region
-        return f"성공적으로 {region} 지역의 맞춤형 관제 분석 보고서 PDF(3페이지 분량)가 생성되었습니다. 답변창 하단의 다운로드 버튼을 클릭하여 저장하십시오."
+        st.session_state["pending_pdf_bytes"] = pdf_bytes
+        st.session_state["pending_pdf_region"] = region
+        
+        # Save to global generated reports dict in session state
+        if "generated_reports" not in st.session_state:
+            st.session_state["generated_reports"] = {}
+        st.session_state["generated_reports"][region] = pdf_bytes
+        
+        return f"성공적으로 {region} 지역의 맞춤형 관제 분석 보고서 PDF(3페이지 분량)가 생성되었습니다. 아래 다운로드 버튼을 확인하십시오."
     except Exception as e:
         return f"보고서 PDF 생성 실패: {str(e)}"
 
@@ -634,10 +642,34 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
     with col3:
         st.markdown("""
             <div class="info-card">
-                <h4>📋 보고서 요약 요청</h4>
-                <p>현재 도심 행정구역 또는 고속도로망 최적화의 핵심 요약과 당면 문제점을 보고서용으로 정돈해 줍니다.</p>
+                <h4>📋 맞춤형 보고서 생성</h4>
+                <p>"안양시 보고서 만들어줘" 처럼 특정 지역 이름을 언급하면 AI가 3페이지 분량의 PDF 보고서를 자동 발간합니다.</p>
             </div>
         """, unsafe_allow_html=True)
+
+    # 📋 발간된 보고서 다운로드 센터 (세션 내 생성된 보고서가 있을 때만 노출)
+    if "generated_reports" in st.session_state and st.session_state["generated_reports"]:
+        st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
+        st.markdown("### 📥 실시간 발간 완료된 맞춤형 보고서 목록")
+        report_items = list(st.session_state["generated_reports"].items())
+        # Filter out None or invalid entries, ensure bytes type
+        valid_items = [
+            (rn, bytes(rb)) for rn, rb in report_items
+            if rb is not None and isinstance(rb, (bytes, bytearray)) and len(rb) > 0
+        ]
+        if valid_items:
+            cols = st.columns(min(len(valid_items), 4))
+            for col_idx, (region_name, r_bytes) in enumerate(valid_items):
+                with cols[col_idx % len(cols)]:
+                    st.download_button(
+                        label=f"💾 {region_name} PDF 다운로드",
+                        data=r_bytes,
+                        file_name=f"{region_name}_EV_charge_report.pdf",
+                        mime="application/pdf",
+                        key=f"dl_btn_center_{region_name}_{col_idx}",
+                        use_container_width=True
+                    )
+        st.markdown("---")
 
     # Context Injection setup
     dashboard_context = build_system_context(filtered_data, model_state, control_mode, hw_data)
@@ -654,6 +686,11 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
     - 시간대별 충전부하 데이터: 2024년 9월 30일 (한국전력공사 데이터)
     - 즉, 본 시스템은 2024년~2025년의 최신 공공 데이터를 융합 분석한 결과입니다. 2024년 5월 16일 같은 임의의 과거 날짜나 특정 시점만을 기준으로 보고서를 작성하지 않았음을 확실히 인지하고 설명하십시오.
     
+    [CRITICAL RULE - PDF REPORT GENERATION]
+    - 사용자가 "보고서", "리포트", "PDF", "다운로드" 등의 단어와 함께 특정 지역(예: "강남구", "안양시", "부천시" 등)의 보고서 생성을 요청하는 경우, 당신은 절대로 스스로 보고서가 생성되었다고 답변을 날조(Hallucination)해서는 안 됩니다.
+    - 이러한 요청을 받으면 **반드시** 즉시 `generate_report_from_conversation` 툴을 호출하여 실제로 PDF 파일을 생성해야 합니다.
+    - 툴 호출 결과(Function Response)를 받은 후에만 "성공적으로 보고서가 생성되었습니다"라고 사용자에게 답변하십시오. 툴을 호출하지 않은 채 생성되었다고 거짓말하지 마십시오.
+    
     현재 대시보드의 실시간 통계 및 예측 상태 데이터(JSON 형식):
     {dashboard_context}
     
@@ -668,6 +705,7 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
     3. 예측 모델에 관해 묻는다면, 현재 최적 모델명과 Test RMSE 오차를 토대로 과학적 타당성을 설명해 주십시오.
     4. 분석 내용에 표나 불릿 포인트를 적극적으로 활용하여 공공 보고서처럼 가독성 높게 답변하십시오.
     5. 사용자가 상위 여러 지역(예: TOP 5, TOP 10 등)의 부하지수 목록이나 테이블을 요청하는 경우, get_top_regions 툴을 적극적으로 호출하여 실시간 통계 표를 사용자에게 제시하십시오.
+    6. 사용자가 특정 행정구역에 대한 상세 분석 보고서 발간, PDF 다운로드 또는 리포트 출력을 요청하는 경우(예: "안양시 보고서 만들어줘", "부천시 PDF 다운로드"), 반드시 'generate_report_from_conversation' 툴을 호출하여 맞춤형 PDF 보고서를 생성해 주십시오.
     """
 
     # Session State Chat History Init
@@ -678,17 +716,31 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
     for idx, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-            if message["role"] == "assistant" and idx == len(st.session_state.messages) - 1:
-                pdf_bytes = st.session_state.get("pdf_report_bytes")
-                pdf_region = st.session_state.get("pdf_report_region")
-                if pdf_bytes and pdf_region and f"{pdf_region} 지역의 맞춤형 관제 분석 보고서 PDF" in message["content"]:
-                    st.download_button(
-                        label=f"⬇️ {pdf_region} 관제 분석 보고서 다운로드 (PDF)",
-                        data=pdf_bytes,
-                        file_name=f"{pdf_region}_EV_charge_report.pdf",
-                        mime="application/pdf",
-                        key=f"dl_btn_{idx}"
-                    )
+            _pdf_b = message.get("pdf_bytes")
+            _pdf_r = message.get("pdf_region")
+            if _pdf_b is not None and _pdf_r and isinstance(_pdf_b, (bytes, bytearray)) and len(_pdf_b) > 0:
+                st.download_button(
+                    label=f"⬇️ {_pdf_r} 관제 분석 보고서 다운로드 (PDF)",
+                    data=bytes(_pdf_b),
+                    file_name=f"{_pdf_r}_EV_charge_report.pdf",
+                    mime="application/pdf",
+                    key=f"dl_btn_{idx}"
+                )
+            elif message["role"] == "assistant" and "generated_reports" in st.session_state:
+                # Fallback: search for generated reports in the message content
+                for region, report_bytes in st.session_state["generated_reports"].items():
+                    if report_bytes is None or not isinstance(report_bytes, (bytes, bytearray)) or len(report_bytes) == 0:
+                        continue
+                    short_region = region.replace("서울", "").replace("경기", "").replace("인천", "").strip()
+                    if (region in message["content"] or short_region in message["content"]) and ("보고서" in message["content"] or "PDF" in message["content"]):
+                        st.download_button(
+                            label=f"📥 {region} 관제 분석 보고서 다운로드 (PDF)",
+                            data=bytes(report_bytes),
+                            file_name=f"{region}_EV_charge_report.pdf",
+                            mime="application/pdf",
+                            key=f"dl_btn_fallback_{idx}_{region}"
+                        )
+                        break
 
     # Suggestion Chips
     st.markdown("##### 💡 추천 질문 바로 하기")
@@ -752,54 +804,68 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                     with st.spinner("AI 분석가가 데이터를 분석 중입니다..."):
                         response = chat.send_message(prompt)
                         
-                        # Function Calling loop to handle simulation requests
-                        if response.candidates and response.candidates[0].content.parts:
-                            parts = response.candidates[0].content.parts
-                            for part in parts:
-                                if hasattr(part, "function_call") and part.function_call:
-                                    name = part.function_call.name
-                                    args = part.function_call.args
-                                    
-                                    if name == "get_simulation_result":
-                                        region = args.get("region", "")
-                                        count = int(args.get("count", 10))
-                                        power_type = args.get("power_type", "급속")
-                                        sim_res = get_simulation_result(region, count, power_type)
-                                    elif name == "get_shap_analysis":
-                                        region = args.get("region", "")
-                                        sim_res = get_shap_analysis(region)
-                                    elif name == "run_dr_simulation":
-                                        region = args.get("region", "")
-                                        intervention_type = args.get("intervention_type", "V2G_Peak_Shaving")
-                                        sim_res = run_dr_simulation(region, intervention_type)
-                                    elif name == "get_top_regions":
-                                        n = int(args.get("n", 10))
-                                        metric = args.get("metric", "전력_부하지수")
-                                        sim_res = get_top_regions(n, metric)
-                                    elif name == "generate_report_from_conversation":
-                                        region = args.get("region", "")
-                                        sim_res = generate_report_from_conversation(region)
-                                    else:
-                                        sim_res = "알 수 없는 함수 호출입니다."
+                        # Function Calling loop - handles multiple/chained tool calls
+                        max_iterations = 8
+                        iteration = 0
+                        while iteration < max_iterations:
+                            iteration += 1
+                            # Check if this response contains any function calls
+                            has_function_call = False
+                            if response.candidates and response.candidates[0].content.parts:
+                                parts = response.candidates[0].content.parts
+                                for part in parts:
+                                    if hasattr(part, "function_call") and part.function_call:
+                                        has_function_call = True
+                                        name = part.function_call.name
+                                        args = part.function_call.args
                                         
-                                    # Feedback loop to Gemini LLM with JSON payload fallback
-                                    try:
-                                        func_response_part = genai.types.Part.from_function_response(
-                                            name=name,
-                                            response={"result": sim_res}
-                                        )
-                                    except Exception:
-                                        func_response_part = {
-                                            "function_response": {
-                                                "name": name,
-                                                "response": {"result": sim_res}
+                                        if name == "get_simulation_result":
+                                            region = args.get("region", "")
+                                            count = int(args.get("count", 10))
+                                            power_type = args.get("power_type", "급속")
+                                            sim_res = get_simulation_result(region, count, power_type)
+                                        elif name == "get_shap_analysis":
+                                            region = args.get("region", "")
+                                            sim_res = get_shap_analysis(region)
+                                        elif name == "run_dr_simulation":
+                                            region = args.get("region", "")
+                                            intervention_type = args.get("intervention_type", "V2G_Peak_Shaving")
+                                            sim_res = run_dr_simulation(region, intervention_type)
+                                        elif name == "get_top_regions":
+                                            n = int(args.get("n", 10))
+                                            metric = args.get("metric", "전력_부하지수")
+                                            sim_res = get_top_regions(n, metric)
+                                        elif name == "generate_report_from_conversation":
+                                            region = args.get("region", "")
+                                            sim_res = generate_report_from_conversation(region)
+                                        else:
+                                            sim_res = "알 수 없는 함수 호출입니다."
+                                            
+                                        # Feedback loop to Gemini LLM with JSON payload fallback
+                                        try:
+                                            func_response_part = genai.types.Part.from_function_response(
+                                                name=name,
+                                                response={"result": sim_res}
+                                            )
+                                        except Exception:
+                                            func_response_part = {
+                                                "function_response": {
+                                                    "name": name,
+                                                    "response": {"result": sim_res}
+                                                }
                                             }
-                                        }
                                         
-                                    response = chat.send_message(func_response_part)
-                                    break
+                                        response = chat.send_message(func_response_part)
+                                        break  # One function call per iteration; re-check the new response
+                            
+                            if not has_function_call:
+                                break  # No more function calls, exit loop
                                         
-                        full_response = response.text
+                        # Extract final text response
+                        try:
+                            full_response = response.text
+                        except Exception:
+                            full_response = "응답 처리 중 오류가 발생했습니다. 다시 시도해 주세요."
                 else:
                     # OpenAI-compatible multi-provider logic (Groq)
                     openai_tools = [
@@ -956,8 +1022,22 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                     
                 message_placeholder.markdown(full_response)
                 
-                # Add assistant response to chat history
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                # Append assistant response with optional PDF metadata
+                msg_data = {"role": "assistant", "content": full_response}
+                if "pending_pdf_bytes" in st.session_state and "pending_pdf_region" in st.session_state:
+                    msg_data["pdf_bytes"] = st.session_state.pop("pending_pdf_bytes")
+                    msg_data["pdf_region"] = st.session_state.pop("pending_pdf_region")
+                st.session_state.messages.append(msg_data)
+                
+                # Immediately render download button for any newly generated PDF
+                if msg_data.get("pdf_bytes") and msg_data.get("pdf_region"):
+                    st.download_button(
+                        label=f"⬇️ {msg_data['pdf_region']} 관제 분석 보고서 다운로드 (PDF)",
+                        data=msg_data["pdf_bytes"],
+                        file_name=f"{msg_data['pdf_region']}_EV_charge_report.pdf",
+                        mime="application/pdf",
+                        key=f"dl_btn_new_{msg_data['pdf_region']}"
+                    )
                 
             except Exception as e:
                 err_str = str(e)
@@ -976,7 +1056,8 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 else:
                     st.error(f"⚠️ **{current_provider} 호출 중 오류가 발생했습니다:** {clean_err}")
                 
-        # Always rerun after prompt execution to update chat display and render download buttons
+        # Rerun to update chat display. For PDF reports, generated_reports section at the top
+        # will show the download button on the next render cycle, so rerun is safe here.
         st.rerun()
 
     # Render interactive Plotly SHAP chart if data exists in session state
