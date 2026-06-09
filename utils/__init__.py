@@ -1,1 +1,8 @@
-"""Utils package for EV charge analysis app."""
+# ============================================================
+# 파일명: __init__.py
+# 설명: utils(유틸리티) 패키지(Package)의 초기화 모듈.
+#       이 파일이 존재함으로써 utils 디렉터리가
+#       Python(파이썬) 패키지로 인식된다.
+# ============================================================
+
+"""Utils package for EV charge analysis app."""  # EV(전기차) 충전 분석 앱을 위한 유틸리티 패키지 docstring(독스트링)

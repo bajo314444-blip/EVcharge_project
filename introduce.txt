@@ -1,0 +1,56 @@
+# ============================================================
+# 파일명: requirements.txt
+# 설명: EV(전기차) 충전소 부하 예측 웹서비스 운영(Production) 의존성 패키지 목록
+# 사용법: pip install -r requirements.txt
+# ============================================================
+
+# pandas(판다스) — DataFrame(데이터프레임) 기반 데이터 처리
+# numpy(넘파이) — 수치 연산 및 배열(array) 연산
+# scikit-learn(사이킷런) — 머신러닝(Machine Learning) 모델 학습/추론
+# scipy(사이파이) — 과학 계산 및 통계 함수
+# streamlit(스트림릿) — 웹 대시보드 UI 프레임워크
+# folium(폴리움) — 지도(Map) 시각화 라이브러리
+# streamlit-folium — Streamlit(스트림릿)과 Folium(폴리움) 연동
+# plotly(플로틀리) — 인터랙티브 차트(Chart) 시각화
+# openpyxl — Excel(.xlsx) 파일 읽기/쓰기
+# matplotlib(맷플롯립) — 정적 그래프 시각화
+# shap — SHAP(설명가능 AI) 특성 중요도 분석
+# umap-learn — UMAP(차원축소) 시각화
+# tableone — Table 1(기술통계표) 자동 생성
+# fpdf2 — PDF(보고서) 문서 생성
+# kaleido — Plotly(플로틀리) 차트 이미지보내기(Export)
+# networkx(네트워크X) — 그래프(Graph) 네트워크 분석
+# statsmodels(통계모델) — 통계 모델링 및 검정
+# seaborn(시본) — 통계 시각화 스타일
+# google-generativeai — Gemini(제미나이) AI API 연동
+# onnxruntime — ONNX(오픈 신경망 교환) 모델 추론(Inference) 런타임
+
+# ============================================================
+# 파일명: requirements-dev.txt
+# 설명: 개발(Development) 및 모델 사전학습(Pre-training)용 추가 의존성 패키지 목록
+#       requirements.txt를 먼저 설치한 후 본 파일을 설치한다.
+# 사용법: pip install -r requirements-dev.txt
+# ============================================================
+
+# pandas(판다스) — DataFrame(데이터프레임) 기반 데이터 처리
+# numpy(넘파이) — 수치 연산 및 배열(array) 연산
+# scikit-learn(사이킷런) — 머신러닝(Machine Learning) 모델 학습/추론
+# scipy(사이파이) — 과학 계산 및 통계 함수
+# streamlit(스트림릿) — 웹 대시보드 UI 프레임워크
+# folium(폴리움) — 지도(Map) 시각화 라이브러리
+# streamlit-folium — Streamlit(스트림릿)과 Folium(폴리움) 연동
+# plotly(플로틀리) — 인터랙티브 차트(Chart) 시각화
+# openpyxl — Excel(.xlsx) 파일 읽기/쓰기
+# matplotlib(맷플롯립) — 정적 그래프 시각화
+# shap — SHAP(설명가능 AI) 특성 중요도 분석
+# umap-learn — UMAP(차원축소) 시각화
+# tableone — Table 1(기술통계표) 자동 생성
+# fpdf2 — PDF(보고서) 문서 생성
+# kaleido — Plotly(플로틀리) 차트 이미지보내기(Export)
+# networkx(네트워크X) — 그래프(Graph) 네트워크 분석
+# statsmodels(통계모델) — 통계 모델링 및 검정
+# seaborn(시본) — 통계 시각화 스타일
+# google-generativeai — Gemini(제미나이) AI API 연동
+# onnx — ONNX(오픈 신경망 교환) 모델 직렬화(Serialization) 포맷
+# onnxruntime — ONNX 모델 추론(Inference) 런타임
+# skl2onnx — scikit-learn(사이킷런) 모델을 ONNX로 변환(Convert)하는 도구
