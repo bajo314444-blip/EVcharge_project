@@ -296,6 +296,12 @@ def generate_report_from_conversation(region: str) -> str:
         st.session_state["pdf_report_region"] = region
         st.session_state["pending_pdf_bytes"] = pdf_bytes
         st.session_state["pending_pdf_region"] = region
+        
+        # Save to global generated reports dict in session state
+        if "generated_reports" not in st.session_state:
+            st.session_state["generated_reports"] = {}
+        st.session_state["generated_reports"][region] = pdf_bytes
+        
         return f"성공적으로 {region} 지역의 맞춤형 관제 분석 보고서 PDF(3페이지 분량)가 생성되었습니다. 아래 다운로드 버튼을 확인하십시오."
     except Exception as e:
         return f"보고서 PDF 생성 실패: {str(e)}"
@@ -633,13 +639,26 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                 <p>"안양시에 급속 충전소 10대를 증설하면 부하가 얼마나 줄어들까?" 같은 시나리오 영향력을 문의해 보세요.</p>
             </div>
         """, unsafe_allow_html=True)
-    with col3:
-        st.markdown("""
-            <div class="info-card">
-                <h4>📋 보고서 요약 요청</h4>
-                <p>현재 도심 행정구역 또는 고속도로망 최적화의 핵심 요약과 당면 문제점을 보고서용으로 정돈해 줍니다.</p>
             </div>
         """, unsafe_allow_html=True)
+
+    # 📋 발간된 보고서 다운로드 센터 (세션 내 생성된 보고서가 있을 때만 노출)
+    if "generated_reports" in st.session_state and st.session_state["generated_reports"]:
+        st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
+        st.markdown("### 📥 실시간 발간 완료된 맞춤형 보고서 목록")
+        report_items = list(st.session_state["generated_reports"].items())
+        cols = st.columns(min(len(report_items), 4))
+        for col_idx, (region_name, r_bytes) in enumerate(report_items):
+            with cols[col_idx % len(cols)]:
+                st.download_button(
+                    label=f"💾 {region_name} PDF 다운로드",
+                    data=r_bytes,
+                    file_name=f"{region_name}_EV_charge_report.pdf",
+                    mime="application/pdf",
+                    key=f"dl_btn_center_{region_name}_{col_idx}",
+                    use_container_width=True
+                )
+        st.markdown("---")
 
     # Context Injection setup
     dashboard_context = build_system_context(filtered_data, model_state, control_mode, hw_data)
@@ -655,6 +674,11 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
     - 연월별 급속 충전량 데이터: 2015년 ~ 2025년 8월 (환경부 데이터)
     - 시간대별 충전부하 데이터: 2024년 9월 30일 (한국전력공사 데이터)
     - 즉, 본 시스템은 2024년~2025년의 최신 공공 데이터를 융합 분석한 결과입니다. 2024년 5월 16일 같은 임의의 과거 날짜나 특정 시점만을 기준으로 보고서를 작성하지 않았음을 확실히 인지하고 설명하십시오.
+    
+    [CRITICAL RULE - PDF REPORT GENERATION]
+    - 사용자가 "보고서", "리포트", "PDF", "다운로드" 등의 단어와 함께 특정 지역(예: "강남구", "안양시", "부천시" 등)의 보고서 생성을 요청하는 경우, 당신은 절대로 스스로 보고서가 생성되었다고 답변을 날조(Hallucination)해서는 안 됩니다.
+    - 이러한 요청을 받으면 **반드시** 즉시 `generate_report_from_conversation` 툴을 호출하여 실제로 PDF 파일을 생성해야 합니다.
+    - 툴 호출 결과(Function Response)를 받은 후에만 "성공적으로 보고서가 생성되었습니다"라고 사용자에게 답변하십시오. 툴을 호출하지 않은 채 생성되었다고 거짓말하지 마십시오.
     
     현재 대시보드의 실시간 통계 및 예측 상태 데이터(JSON 형식):
     {dashboard_context}
@@ -689,6 +713,19 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                     mime="application/pdf",
                     key=f"dl_btn_{idx}"
                 )
+            elif message["role"] == "assistant" and "generated_reports" in st.session_state:
+                # Fallback: search for generated reports in the message content
+                for region, pdf_bytes in st.session_state["generated_reports"].items():
+                    short_region = region.replace("서울", "").replace("경기", "").replace("인천", "").strip()
+                    if (region in message["content"] or short_region in message["content"]) and ("보고서" in message["content"] or "PDF" in message["content"]):
+                        st.download_button(
+                            label=f"📥 {region} 관제 분석 보고서 다운로드 (PDF)",
+                            data=pdf_bytes,
+                            file_name=f"{region}_EV_charge_report.pdf",
+                            mime="application/pdf",
+                            key=f"dl_btn_fallback_{idx}_{region}"
+                        )
+                        break
 
     # Suggestion Chips
     st.markdown("##### 💡 추천 질문 바로 하기")
