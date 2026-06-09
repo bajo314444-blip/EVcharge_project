@@ -294,7 +294,9 @@ def generate_report_from_conversation(region: str) -> str:
         pdf_bytes = generate_regional_report_pdf(region, final_data, hourly_data)
         st.session_state["pdf_report_bytes"] = pdf_bytes
         st.session_state["pdf_report_region"] = region
-        return f"성공적으로 {region} 지역의 맞춤형 관제 분석 보고서 PDF(3페이지 분량)가 생성되었습니다. 답변창 하단의 다운로드 버튼을 클릭하여 저장하십시오."
+        st.session_state["pending_pdf_bytes"] = pdf_bytes
+        st.session_state["pending_pdf_region"] = region
+        return f"성공적으로 {region} 지역의 맞춤형 관제 분석 보고서 PDF(3페이지 분량)가 생성되었습니다. 아래 다운로드 버튼을 확인하십시오."
     except Exception as e:
         return f"보고서 PDF 생성 실패: {str(e)}"
 
@@ -668,6 +670,7 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
     3. 예측 모델에 관해 묻는다면, 현재 최적 모델명과 Test RMSE 오차를 토대로 과학적 타당성을 설명해 주십시오.
     4. 분석 내용에 표나 불릿 포인트를 적극적으로 활용하여 공공 보고서처럼 가독성 높게 답변하십시오.
     5. 사용자가 상위 여러 지역(예: TOP 5, TOP 10 등)의 부하지수 목록이나 테이블을 요청하는 경우, get_top_regions 툴을 적극적으로 호출하여 실시간 통계 표를 사용자에게 제시하십시오.
+    6. 사용자가 특정 행정구역에 대한 상세 분석 보고서 발간, PDF 다운로드 또는 리포트 출력을 요청하는 경우(예: "안양시 보고서 만들어줘", "부천시 PDF 다운로드"), 반드시 'generate_report_from_conversation' 툴을 호출하여 맞춤형 PDF 보고서를 생성해 주십시오.
     """
 
     # Session State Chat History Init
@@ -678,17 +681,14 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
     for idx, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-            if message["role"] == "assistant" and idx == len(st.session_state.messages) - 1:
-                pdf_bytes = st.session_state.get("pdf_report_bytes")
-                pdf_region = st.session_state.get("pdf_report_region")
-                if pdf_bytes and pdf_region and f"{pdf_region} 지역의 맞춤형 관제 분석 보고서 PDF" in message["content"]:
-                    st.download_button(
-                        label=f"⬇️ {pdf_region} 관제 분석 보고서 다운로드 (PDF)",
-                        data=pdf_bytes,
-                        file_name=f"{pdf_region}_EV_charge_report.pdf",
-                        mime="application/pdf",
-                        key=f"dl_btn_{idx}"
-                    )
+            if message.get("pdf_bytes") and message.get("pdf_region"):
+                st.download_button(
+                    label=f"⬇️ {message['pdf_region']} 관제 분석 보고서 다운로드 (PDF)",
+                    data=message["pdf_bytes"],
+                    file_name=f"{message['pdf_region']}_EV_charge_report.pdf",
+                    mime="application/pdf",
+                    key=f"dl_btn_{idx}"
+                )
 
     # Suggestion Chips
     st.markdown("##### 💡 추천 질문 바로 하기")
@@ -956,8 +956,15 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
                     
                 message_placeholder.markdown(full_response)
                 
-                # Add assistant response to chat history
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                # Append assistant response with optional PDF metadata
+                msg_data = {"role": "assistant", "content": full_response}
+                if "pending_pdf_bytes" in st.session_state and "pending_pdf_region" in st.session_state:
+                    msg_data["pdf_bytes"] = st.session_state["pending_pdf_bytes"]
+                    msg_data["pdf_region"] = st.session_state["pending_pdf_region"]
+                    # Clean up pending session state
+                    del st.session_state["pending_pdf_bytes"]
+                    del st.session_state["pending_pdf_region"]
+                st.session_state.messages.append(msg_data)
                 
             except Exception as e:
                 err_str = str(e)
