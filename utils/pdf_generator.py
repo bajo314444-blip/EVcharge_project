@@ -345,7 +345,7 @@ def generate_report_pdf(best_name, test_rmse, top3_list, top_features, feature_i
     _write_section_title(pdf, "□ 최종 의사결정 촉구 (Call to Action)", font_family)
     _write_bullet_html(pdf, "전기차 충전 인프라 정책은 이제 '얼마나 많이 까는가(Quantity)'의 문제를 넘어 <b>'어디에, 어떤 용량으로 스마트하게 까는가(Quality & Grid-friendly)'</b>의 영역으로 진입했음. 본 보고서에서 도출된 수도권 고위험 지역 데이터와 예측 모델링 결과를 차년도 지자체 인프라 구축 예산 편성 및 조례 개정에 즉각 반영할 것을 강력히 권고함.", font_family)
     
-    return pdf.output()
+    return bytes(pdf.output())
 
 def generate_highway_report_pdf(hw_df, scenario, budget):
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -408,7 +408,7 @@ def generate_highway_report_pdf(hw_df, scenario, budget):
             row_cell.cell(f"{int(row['최적_추가대수'])}대")
             row_cell.cell(f"{row['최적화후_부하점수']:.1f}")
             
-    return pdf.output()
+    return bytes(pdf.output())
 
 
 def generate_regional_report_pdf(region, final_data, hourly_data):
@@ -587,4 +587,4 @@ def generate_regional_report_pdf(region, final_data, hourly_data):
                 except Exception:
                     pass
                     
-    return pdf.output()
+    return bytes(pdf.output())

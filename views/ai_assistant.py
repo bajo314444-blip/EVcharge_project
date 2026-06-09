@@ -652,17 +652,23 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
         st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
         st.markdown("### 📥 실시간 발간 완료된 맞춤형 보고서 목록")
         report_items = list(st.session_state["generated_reports"].items())
-        cols = st.columns(min(len(report_items), 4))
-        for col_idx, (region_name, r_bytes) in enumerate(report_items):
-            with cols[col_idx % len(cols)]:
-                st.download_button(
-                    label=f"💾 {region_name} PDF 다운로드",
-                    data=r_bytes,
-                    file_name=f"{region_name}_EV_charge_report.pdf",
-                    mime="application/pdf",
-                    key=f"dl_btn_center_{region_name}_{col_idx}",
-                    use_container_width=True
-                )
+        # Filter out None or invalid entries, ensure bytes type
+        valid_items = [
+            (rn, bytes(rb)) for rn, rb in report_items
+            if rb is not None and isinstance(rb, (bytes, bytearray)) and len(rb) > 0
+        ]
+        if valid_items:
+            cols = st.columns(min(len(valid_items), 4))
+            for col_idx, (region_name, r_bytes) in enumerate(valid_items):
+                with cols[col_idx % len(cols)]:
+                    st.download_button(
+                        label=f"💾 {region_name} PDF 다운로드",
+                        data=r_bytes,
+                        file_name=f"{region_name}_EV_charge_report.pdf",
+                        mime="application/pdf",
+                        key=f"dl_btn_center_{region_name}_{col_idx}",
+                        use_container_width=True
+                    )
         st.markdown("---")
 
     # Context Injection setup
@@ -710,22 +716,26 @@ def render_ai_assistant(filtered_data, model_state, control_mode, hw_data=None):
     for idx, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-            if message.get("pdf_bytes") and message.get("pdf_region"):
+            _pdf_b = message.get("pdf_bytes")
+            _pdf_r = message.get("pdf_region")
+            if _pdf_b is not None and _pdf_r and isinstance(_pdf_b, (bytes, bytearray)) and len(_pdf_b) > 0:
                 st.download_button(
-                    label=f"⬇️ {message['pdf_region']} 관제 분석 보고서 다운로드 (PDF)",
-                    data=message["pdf_bytes"],
-                    file_name=f"{message['pdf_region']}_EV_charge_report.pdf",
+                    label=f"⬇️ {_pdf_r} 관제 분석 보고서 다운로드 (PDF)",
+                    data=bytes(_pdf_b),
+                    file_name=f"{_pdf_r}_EV_charge_report.pdf",
                     mime="application/pdf",
                     key=f"dl_btn_{idx}"
                 )
             elif message["role"] == "assistant" and "generated_reports" in st.session_state:
                 # Fallback: search for generated reports in the message content
-                for region, pdf_bytes in st.session_state["generated_reports"].items():
+                for region, report_bytes in st.session_state["generated_reports"].items():
+                    if report_bytes is None or not isinstance(report_bytes, (bytes, bytearray)) or len(report_bytes) == 0:
+                        continue
                     short_region = region.replace("서울", "").replace("경기", "").replace("인천", "").strip()
                     if (region in message["content"] or short_region in message["content"]) and ("보고서" in message["content"] or "PDF" in message["content"]):
                         st.download_button(
                             label=f"📥 {region} 관제 분석 보고서 다운로드 (PDF)",
-                            data=pdf_bytes,
+                            data=bytes(report_bytes),
                             file_name=f"{region}_EV_charge_report.pdf",
                             mime="application/pdf",
                             key=f"dl_btn_fallback_{idx}_{region}"
