@@ -1,68 +1,114 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+# ============================================================
+# 파일명: .gitignore
+# 설명: Git 버전 관리에서 추적(Track) 제외할 파일/디렉터리 목록
+# ============================================================
 
-# Virtual Environments
-venv/
-env/
-.env/
-.venv/
-env.bak/
-venv.bak/
+# --- Byte-compiled(바이트컴파일) / optimized(최적화) / DLL 파일 ---
+__pycache__/  
+# Python(파이썬) 바이트코드 캐시 디렉터리
 
-# Jupyter Notebook
-.ipynb_checkpoints/
+*.py[cod]  
+# .pyc, .pyo, .pyd 컴파일된 Python 파일
 
-# IDE / Editor
-.vscode/
-.idea/
-*.swp
-*.swo
+*$py.class  
+# Jython(자이썬) 클래스 파일
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# --- Virtual Environments(가상환경) ---
+venv/  
+# venv(가상환경) 디렉터리
 
-# Project specific data and large files
-dataset/
-*.csv
-*.xlsx
-*.html
-catboost_info/
-pictures/
-발표자료_모음/
-archive/
-results/baseline/
+env/  
+# env(환경) 디렉터리
 
-# Logs and databases
-*.log
-*.sqlite3
+.env/  
+# .env 환경변수 디렉터리
+
+.venv/  
+# .venv 가상환경 디렉터리
+
+env.bak/  
+# env 백업 디렉터리
+
+venv.bak/  
+# venv 백업 디렉터리
+
+# --- Jupyter Notebook(주피터 노트북) ---
+.ipynb_checkpoints/  # Jupyter(주피터) 자동 저장 체크포인트 디렉터리
+
+# --- IDE(통합개발환경) / Editor(에디터) ---
+.vscode/  
+# VS Code(비주얼 스튜디오 코드) 워크스페이스 설정
+
+.idea/  
+# IntelliJ/PyCharm IDE 설정 디렉터리
+
+*.swp  # Vim(빔) 스왑 파일
+*.swo  # Vim(빔) 스왑 파일 (보조)
+
+# --- OS(운영체제) generated(생성) files(파일) ---
+.DS_Store  # macOS(맥OS) 폴더 메타데이터
+.DS_Store?  # macOS(맥OS) 폴더 메타데이터 변형
+._*  # macOS(맥OS) 리소스 포크 파일
+.Spotlight-V100  # macOS(맥OS) Spotlight(스포트라이트) 인덱스
+.Trashes  # macOS(맥OS) 휴지통 메타데이터
+ehthumbs.db  # Windows(윈도우) 썸네일 캐시
+Thumbs.db  # Windows(윈도우) 썸네일 캐시
+
+# --- Project specific(프로젝트 전용) data(데이터) and large files(대용량 파일) ---
+dataset/  # 원본 CSV/Excel 데이터셋 디렉터리 (대용량)
+*.csv  
+# CSV(쉼표구분값) 데이터 파일
+
+*.xlsx  
+# Excel(엑셀) 데이터 파일
+
+*.html  
+# HTML(하이퍼텍스트) 출력 파일
+
+catboost_info/  
+# CatBoost(캣부스트) 학습 로그 디렉터리
+
+pictures/  
+# 생성된 이미지 저장 디렉터리
+
+발표자료_모음/  
+# 발표 자료 모음 디렉터리
+
+archive/  
+# 아카이브(보관) 스크립트 디렉터리
+
+results/baseline/  
+# 베이스라인(Baseline) 결과 저장 디렉터리
+
+# --- Logs(로그) and databases(데이터베이스) ---
+*.log  
+# 로그(Log) 파일
+
+*.sqlite3  
+# SQLite(에스큐라이트) 데이터베이스 파일
 
 # ==========================================
-# [V2.0] 대통합 아키텍처 및 보안용 추가 설정
+# [V2.0] 대통합 아키텍처(Architecture) 및 보안(Security)용 추가 설정
 # ==========================================
 
 # 1. 자동 생성 임시 테스트 이미지 및 이력 차단
-test_kaleido.png
-kaleido_temp/
+test_kaleido.png  
+# Kaleido(칼레이도) 테스트용 임시 PNG 이미지
+
+kaleido_temp/  
+# Kaleido(칼레이도) 임시 작업 디렉터리
 
 # 2. 로컬에서 누적 빌드되는 대용량 리포트 PDF 격리
-*.pdf
+*.pdf  
+# PDF(보고서) 파일 — 로컬 생성 대용량 문서
 
-# 3. [보안/중요] AI 챗봇 API Key 및 로컬 환경설정 보호
-.streamlit/secrets.toml
+# 3. [보안/중요] AI 챗봇 API Key(키) 및 로컬 환경설정 보호
+.streamlit/secrets.toml  
+# Streamlit(스트림릿) 시크릿(Secret) — API 키 포함 민감 파일
 
 # 4. [사전학습] 사전 학습 모델 상태 joblib 파일 추적 허용
-!results/trained_model_state.joblib
+!results/trained_model_state.joblib  # negation(부정) 패턴 — joblib 모델 상태 파일은 Git 추적 허용
 
 # 5. 임시 검증 스크립트 격리
-scratch/
-
-
-
+scratch/  
+# scratch(스크래치) 일회성 디버그/검증 스크립트 디렉터리
