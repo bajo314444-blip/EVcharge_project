@@ -452,7 +452,7 @@ def render_dashboard(filtered, top_region, metric, usage_options, final_data, mo
     # --- 메뉴 분기: 예측 모델 비교 ---
     elif active_menu == "📊 예측 모델 비교":  # 선택된 메뉴가 "예측 모델 비교"인 경우
         st.subheader("예측 모델 성능 비교")  # 모델 비교 소제목 표시
-        st.caption("머신러닝 5개와 딥러닝 2개(CNN, Transformer 계열)를 같은 데이터 분할로 비교합니다.")  # 비교 대상 모델 설명 캡션
+        st.caption("머신러닝 4개와 딥러닝 2개(CNN, Transformer 계열)를 같은 데이터 분할로 비교합니다.")  # 비교 대상 모델 설명 캡션
 
         metrics = model_state["metrics"].copy()  # model_state(모델 상태)에서 metrics(지표) DataFrame(데이터프레임) copy(복사)
 
